@@ -92,7 +92,6 @@ export const API_URL = "http://<your-local-ip>:5000";
 To find your local IP:
 ```bash
 ipconfig     # Windows
-ifconfig     # macOS/Linux
 ```
 
 ---
@@ -105,14 +104,13 @@ ifconfig     # macOS/Linux
 | Install requirements | `pip install -r requirements.txt` |
 | Freeze dependencies | `pip freeze > requirements.txt` |
 | Run Flask server | `python app.py` |
-| Activate venv | `venv\Scripts\activate` (Win) / `source venv/bin/activate` (Mac/Linux) |
+| Activate venv | `venv\Scripts\activate` (Win) |
 
 ### Client
 | Action | Command |
 |--------|----------|
 | Start Metro | `npx react-native start` |
 | Run Android | `npx react-native run-android` |
-| Run iOS | `npx react-native run-ios` |
 | Build release | `npx react-native build` |
 
 ---
