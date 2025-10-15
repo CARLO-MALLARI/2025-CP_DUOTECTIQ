@@ -1,4 +1,9 @@
 {
   "name": "MainClient",
-  "displayName": "MainClient"
+  "displayName": "MainClient",
+  "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+  }
 }
