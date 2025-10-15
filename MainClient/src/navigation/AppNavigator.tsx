@@ -1,11 +1,11 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import AuthScreen from '../screens/AuthScreen';
+import { useAuth } from '../providers/AuthProvider';
 import HomeScreen from '../screens/HomeScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import ScanScreen from '../screens/ScanScreen';
-import { useAuth } from '../providers/AuthProvider';
+import AuthStack from './AuthStack';
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -21,17 +21,15 @@ const AppNavigator: React.FC = () => {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
-          // Signed in
           <>
-            <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Home' }} />
-            <Stack.Screen name="Scan" component={ScanScreen} options={{ title: 'Scan' }} />
-            <Stack.Screen name="Settings" component={SettingsScreen} options={{ title: 'Settings' }} />
+            <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Screen name="Scan" component={ScanScreen} />
+            <Stack.Screen name="Settings" component={SettingsScreen} />
           </>
         ) : (
-          // Not signed in
-          <Stack.Screen name="Auth" component={AuthScreen} options={{ headerShown: false }} />
+          <Stack.Screen name="Auth" component={AuthStack} />
         )}
       </Stack.Navigator>
     </NavigationContainer>
