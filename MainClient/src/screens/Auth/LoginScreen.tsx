@@ -5,21 +5,30 @@ import { auth } from '../../lib/firebase';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../types/navigation';
+import LoadingOverlay from '../../components/LoadingOverlay';
 
-// ✅ Tell TypeScript what routes exist
 type AuthNav = NativeStackNavigationProp<AuthStackParamList>;
 
 const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const navigation = useNavigation<AuthNav>(); // ✅ typed navigation
+  const [loading, setLoading] = useState(false);
+  const navigation = useNavigation<AuthNav>();
 
   const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
       // Redirect handled by Auth wrapper (onAuthStateChanged)
     } catch (err: any) {
       Alert.alert('Login Error', err.message || 'Unknown error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -48,6 +57,9 @@ const LoginScreen: React.FC = () => {
           onPress={() => navigation.navigate('Signup')}
         />
       </View>
+
+      {/* 🔥 Loading Overlay */}
+      <LoadingOverlay visible={loading} message="Logging in..." />
     </View>
   );
 };

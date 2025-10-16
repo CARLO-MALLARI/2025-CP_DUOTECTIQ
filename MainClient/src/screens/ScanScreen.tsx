@@ -6,6 +6,7 @@ import { Colors } from 'react-native/Libraries/NewAppScreen';
 import io from 'socket.io-client';
 import RNFS from 'react-native-fs';
 import ImageResizer from 'react-native-image-resizer';
+import BottomNavBar from '../components/BottomNavbar';
 
 const SERVER_URL = 'http://192.168.100.2:5000'; // Change to your IP
 const FRAME_INTERVAL = 500;
@@ -229,6 +230,7 @@ const ScanScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </View>
+      <BottomNavBar isDarkMode={isDarkMode} />
     </SafeAreaView>
   );
 };

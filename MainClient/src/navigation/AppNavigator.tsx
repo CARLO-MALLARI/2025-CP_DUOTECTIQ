@@ -24,7 +24,6 @@ const AppNavigator: React.FC = () => {
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
           <>
-            <Stack.Screen name="Home" component={HomeScreen} />
             <Stack.Screen name="Scan" component={ScanScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} />
           </>

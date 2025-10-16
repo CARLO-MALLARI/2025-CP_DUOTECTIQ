@@ -2,7 +2,6 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
-// Your Firebase configuration object (from Firebase Console)
 const firebaseConfig = {
   apiKey: "AIzaSyDYHZKXOHR4Cki5U17IErTEWFE5obAB-jk",
   authDomain: "ml-crop-45553.firebaseapp.com",
@@ -15,7 +14,5 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-
-// Initialize Firebase Auth with AsyncStorage persistence
 export const auth = getAuth(app);
 export const db = getFirestore(app);

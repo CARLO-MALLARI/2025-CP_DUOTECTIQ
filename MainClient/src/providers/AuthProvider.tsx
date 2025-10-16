@@ -28,12 +28,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (firebaseUser) {
         // persist minimal info in Zustand (which uses AsyncStorage)
+        setUser(firebaseUser);
         setUserStore({
           uid: firebaseUser.uid,
           email: firebaseUser.email ?? null,
           displayName: firebaseUser.displayName ?? null,
         });
       } else {
+        setUser(null);
         clearUser();
       }
 

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert, ScrollView } from 'react-native';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../../lib/firebase';
+import { auth, db } from '../../lib/firebase';
+import { doc, setDoc } from 'firebase/firestore';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../types/navigation';
+import LoadingOverlay from '../../components/LoadingOverlay';
 
 type AuthNav = NativeStackNavigationProp<AuthStackParamList>;
 
@@ -14,25 +16,43 @@ const SignupScreen: React.FC = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  const [role, setRole] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [zip, setZip] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSignup = async () => {
     if (password !== confirmPassword) {
       return Alert.alert('Error', 'Passwords do not match!');
     }
-
+    setLoading(true);
     try {
-      await createUserWithEmailAndPassword(auth, email.trim(), password);
-      Alert.alert('Account Created', 'You can now log in!');
+      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      const user = userCredential.user;
+
+      await setDoc(doc(db, 'users', user.uid), {
+        firstName,
+        lastName,
+        role,
+        address,
+        city,
+        state,
+        zip,
+        email: email.trim(),
+        createdAt: new Date(),
+      });
+
+      Alert.alert('Success', 'Account created successfully!');
       navigation.navigate('Login');
     } catch (err: any) {
-      Alert.alert('Signup Error', err.message || 'Unknown error');
+      console.error(err);
+      Alert.alert('Signup Error', err.message || 'Unknown error occurred');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -40,13 +60,11 @@ const SignupScreen: React.FC = () => {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Create Account</Text>
 
-      {/* Row 1 */}
       <View style={styles.row}>
         <TextInput placeholder="First Name" style={styles.inputHalf} value={firstName} onChangeText={setFirstName} />
         <TextInput placeholder="Last Name" style={styles.inputHalf} value={lastName} onChangeText={setLastName} />
       </View>
 
-      {/* Row 2 */}
       <View style={styles.row}>
         <TextInput
           placeholder="Email"
@@ -57,15 +75,13 @@ const SignupScreen: React.FC = () => {
           autoCapitalize="none"
         />
         <TextInput
-          placeholder="Phone"
+          placeholder="Role"
           style={styles.inputHalf}
-          value={phone}
-          onChangeText={setPhone}
-          keyboardType="phone-pad"
+          value={role}
+          onChangeText={setRole}
         />
       </View>
 
-      {/* Row 3 */}
       <View style={styles.row}>
         <TextInput
           placeholder="Password"
@@ -83,23 +99,27 @@ const SignupScreen: React.FC = () => {
         />
       </View>
 
-      {/* Row 4 */}
       <View style={styles.row}>
         <TextInput placeholder="Address" style={styles.inputHalf} value={address} onChangeText={setAddress} />
         <TextInput placeholder="City" style={styles.inputHalf} value={city} onChangeText={setCity} />
       </View>
 
-      {/* Row 5 */}
       <View style={styles.row}>
         <TextInput placeholder="State" style={styles.inputHalf} value={state} onChangeText={setState} />
-        <TextInput placeholder="Zip Code" style={styles.inputHalf} value={zip} onChangeText={setZip} keyboardType="numeric" />
+        <TextInput
+          placeholder="Zip Code"
+          style={styles.inputHalf}
+          value={zip}
+          onChangeText={setZip}
+          keyboardType="numeric"
+        />
       </View>
 
       <Button title="Sign Up" onPress={handleSignup} />
-
       <View style={{ marginTop: 10 }}>
         <Button title="Already have an account? Login" onPress={() => navigation.navigate('Login')} />
       </View>
+      <LoadingOverlay visible={loading} message="Creating account..." />
     </ScrollView>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, Button, StyleSheet } from 'react-native';
 import { signOut } from 'firebase/auth';
 import { auth, db } from '../lib/firebase';
@@ -10,35 +10,56 @@ import { RootStackParamList } from '../navigation/AppNavigator';
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
-  const user = useUserStore((s) => ({ uid: s.uid, email: s.email, displayName: s.displayName }));
+  const uid = useUserStore((s) => s.uid);
+  const email = useUserStore((s) => s.email);
+  const displayName = useUserStore((s) => s.displayName);
   const setSettings = useUserStore((s) => s.setSettings);
+  
   const [remoteData, setRemoteData] = useState<any>(null);
+  const [darkMode, setDarkMode] = useState(false);
 
   useEffect(() => {
-    if (!user.uid) return;
-    const docRef = doc(db, 'users', user.uid);
+    if (!uid) return;
+    
+    const docRef = doc(db, 'users', uid);
     const unsub = onSnapshot(
       docRef,
       (snapshot) => {
-        setRemoteData(snapshot.exists() ? snapshot.data() : null);
+        const data = snapshot.exists() ? snapshot.data() : null;
+        setRemoteData(data);
+        if (data?.darkMode !== undefined) {
+          setDarkMode(data.darkMode);
+        }
       },
       (err) => console.warn('snapshot err', err)
     );
+    
     return () => unsub();
-  }, [user.uid]);
+  }, [uid]); // Only depend on uid
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
+
+  const handleToggleDarkMode = () => {
+    const newDarkMode = !darkMode;
+    setDarkMode(newDarkMode);
+    setSettings({ darkMode: newDarkMode });
+  };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Hello {user.displayName ?? user.email}</Text>
-      <Text>Remote data (from Firestore): {JSON.stringify(remoteData)}</Text>
+      <Text style={styles.title}>Hello {displayName ?? email}</Text>
       <Button title="Settings" onPress={() => navigation.navigate('Settings')} />
-      <Button
-        title="Sign out"
-        onPress={async () => {
-          await signOut(auth);
-        }}
+      <Button title="Sign out" onPress={handleSignOut} />
+      <Button 
+        title={`Toggle dark mode (${darkMode ? 'ON' : 'OFF'})`}
+        onPress={handleToggleDarkMode} 
       />
-      <Button title="Toggle dark mode (local cache)" onPress={() => setSettings({ darkMode: !Boolean(remoteData?.darkMode) })} />
     </View>
   );
 };

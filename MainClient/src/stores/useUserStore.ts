@@ -2,6 +2,10 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+interface UserSettings {
+  darkMode?: boolean;
+}
+
 export type UserState = {
   uid?: string | null;
   email?: string | null;
@@ -42,7 +46,7 @@ export const useUserStore = create<UserState>()(
         })),
     }),
     {
-      name: 'user-storage',
+      name: 'users',
       storage: createJSONStorage(() => AsyncStorage),
     }
   )
