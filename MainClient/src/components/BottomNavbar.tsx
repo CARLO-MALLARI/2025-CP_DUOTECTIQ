@@ -4,7 +4,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 // Define your routes here - adjust based on your actual routes
-type BottomNavRoute = 'Home' | 'Scan' | 'History' | 'Profile';
+type BottomNavRoute = 'Sorting' | 'Dashboard' | 'History' | 'Overview';
 
 interface NavItem {
   name: BottomNavRoute;
@@ -13,10 +13,10 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { name: 'Home', label: 'Home', icon: '🏠' },
-  { name: 'Scan', label: 'Scan', icon: '📷' },
-  { name: 'History', label: 'History', icon: '📋' },
-  { name: 'Profile', label: 'Profile', icon: '👤' },
+  { name: 'Sorting', label: 'Sorting', icon: '📈' },
+  { name: 'Dashboard', label: 'Dashboard', icon: '💻' },
+  { name: 'History', label: 'Sorting History', icon: '📋' },
+  { name: 'Overview', label: 'Overview', icon: '👤' },
 ];
 
 interface BottomNavBarProps {

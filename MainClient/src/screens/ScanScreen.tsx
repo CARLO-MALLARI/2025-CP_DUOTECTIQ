@@ -7,6 +7,7 @@ import io from 'socket.io-client';
 import RNFS from 'react-native-fs';
 import ImageResizer from 'react-native-image-resizer';
 import BottomNavBar from '../components/BottomNavbar';
+import Header from '../components/Header';
 
 const SERVER_URL = 'http://192.168.100.2:5000'; // Change to your IP
 const FRAME_INTERVAL = 500;
@@ -176,6 +177,7 @@ const ScanScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={backgroundStyle}>
+      <Header title="Home" />
       <View style={styles.container}>
         <View style={styles.cameraContainer}>
           <Camera
