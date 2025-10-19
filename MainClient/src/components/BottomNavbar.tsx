@@ -1,10 +1,17 @@
 import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
-// Define your routes here - adjust based on your actual routes
-type BottomNavRoute = 'Sorting' | 'Dashboard' | 'History' | 'Overview';
+type RootStackParamList = {
+  Scan: undefined;
+  DashboardScreen: undefined;
+  SortingHistoryScreen: undefined;
+  OverviewScreen: undefined;
+};
+
+type BottomNavRoute = 'Scan' | 'DashboardScreen' | 'SortingHistoryScreen' | 'OverviewScreen';
 
 interface NavItem {
   name: BottomNavRoute;
@@ -12,11 +19,11 @@ interface NavItem {
   icon: string;
 }
 
-const navItems: NavItem[] = [
-  { name: 'Sorting', label: 'Sorting', icon: '📈' },
-  { name: 'Dashboard', label: 'Dashboard', icon: '💻' },
-  { name: 'History', label: 'Sorting History', icon: '📋' },
-  { name: 'Overview', label: 'Overview', icon: '👤' },
+export const navItems: NavItem[] = [
+  { name: 'Scan', label: 'Sorting', icon: 'stats-chart-outline' },
+  { name: 'DashboardScreen', label: 'Dashboard', icon: 'speedometer-outline' },
+  { name: 'SortingHistoryScreen', label: 'Sorting History', icon: 'time-outline' },
+  { name: 'OverviewScreen', label: 'Overview', icon: 'person-outline' },
 ];
 
 interface BottomNavBarProps {
@@ -24,8 +31,8 @@ interface BottomNavBarProps {
 }
 
 const BottomNavBar: React.FC<BottomNavBarProps> = ({ isDarkMode = false }) => {
-  const navigation = useNavigation<NativeStackNavigationProp<any>>();
-  const route = useRoute();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, BottomNavRoute>>();
   
   const activeColor = '#2563EB';
   const inactiveColor = isDarkMode ? '#9CA3AF' : '#6B7280';
@@ -39,7 +46,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ isDarkMode = false }) => {
   const handlePress = (routeName: BottomNavRoute) => {
     if (route.name !== routeName) {
       try {
-        navigation.navigate(routeName as never);
+        navigation.replace(routeName);
       } catch (error) {
         console.warn(`Navigation to ${routeName} failed:`, error);
       }
@@ -60,9 +67,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ isDarkMode = false }) => {
             activeOpacity={0.7}
           >
             <View style={styles.iconContainer}>
-              <Text style={[styles.icon, { opacity: active ? 1 : 0.6 }]}>
-                {item.icon}
-              </Text>
+              <Ionicons name={item.icon} size={24} color="#333" />
               {active && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
             </View>
             <Text

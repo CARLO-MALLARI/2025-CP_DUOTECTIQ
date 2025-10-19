@@ -177,7 +177,6 @@ const ScanScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={backgroundStyle}>
-      <Header title="Home" />
       <View style={styles.container}>
         <View style={styles.cameraContainer}>
           <Camera
