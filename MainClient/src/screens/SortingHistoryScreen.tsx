@@ -7,12 +7,14 @@ import {
   TouchableOpacity,
   FlatList,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Picker } from '@react-native-picker/picker';
 import { theme } from '../styles/theme';
 import BottomNavBar from '../components/BottomNavbar';
+import { ScrollView } from 'react-native';
 
 type SortOption = 'All' | 'Tomato' | 'Bell Pepper';
 
@@ -27,8 +29,8 @@ interface SortData {
 }
 
 const data: SortData[] = [
-  { id: '1', crop: 'Tomato', color: 'Green', condition: 'Not Damaged', size: 'Medium', basket: 'Left Basket', time: '09:14:12 AM' },
-  { id: '2', crop: 'Tomato', color: 'Red', condition: 'Not Damaged', size: 'Large', basket: 'Right Basket', time: '09:14:43 AM' },
+  { id: '1', crop: 'Bell Pepper', color: 'Green', condition: 'Not Damaged', size: 'Medium', basket: 'Left Basket', time: '09:14:12 AM' },
+  { id: '2', crop: 'Bell Pepper', color: 'Red', condition: 'Not Damaged', size: 'Large', basket: 'Right Basket', time: '09:14:43 AM' },
   { id: '3', crop: 'Bell Pepper', color: 'Red', condition: 'Damaged', size: 'Large', basket: 'Middle Basket', time: '09:15:14 AM' },
   { id: '4', crop: 'Bell Pepper', color: 'Red', condition: 'Not Damaged', size: 'Small', basket: 'Right Basket', time: '09:15:40 AM' },
   { id: '5', crop: 'Tomato', color: 'Red', condition: 'Damaged', size: 'Medium', basket: 'Middle Basket', time: '09:16:09 AM' },
@@ -47,17 +49,19 @@ const SortingHistoryScreen: React.FC = () => {
     setDatePickerVisible(false);
   };
 
-  const filteredData =
-    sortBy === 'All' ? data : data.filter(item => item.crop === sortBy);
+  const filteredData = sortBy === 'All' ? data : data.filter(item => item.crop === sortBy);
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      
+      <ScrollView style={styles.container}>
       <View style={styles.container}>
-        {/* Header */}
+        {/* Header Title */}
         <Text style={styles.header}>Sorting History</Text>
 
         {/* Filters Row */}
         <View style={styles.filterRow}>
+          {/* Date Picker */}
           <TouchableOpacity
             style={styles.datePicker}
             onPress={() => setDatePickerVisible(true)}
@@ -67,21 +71,19 @@ const SortingHistoryScreen: React.FC = () => {
               placeholder="mm/dd/yyyy"
               value={date}
               editable={false}
+              placeholderTextColor="#777"
             />
-            <Ionicons
-              name="calendar-outline"
-              size={18}
-              color="#555"
-              style={{ marginLeft: 6 }}
-            />
+            <Ionicons name="calendar-outline" size={18} color="#555" />
           </TouchableOpacity>
 
+          {/* Sort Dropdown */}
           <View style={styles.sortPicker}>
             <Picker
               selectedValue={sortBy}
               onValueChange={(itemValue: string) => setSortBy(itemValue as SortOption)}
               mode="dropdown"
               dropdownIconColor="#333"
+              style={{ fontSize: 14 }}
             >
               <Picker.Item label="Sort by" value="All" />
               <Picker.Item label="Tomato" value="Tomato" />
@@ -90,10 +92,10 @@ const SortingHistoryScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Table */}
-        <View style={styles.table}>
+        {/* Table Section */}
+        <View style={styles.tableCard}>
           <View style={styles.tableHeader}>
-            <Text style={[styles.cell, styles.headerCell]}>Crop</Text>
+            <Text style={[styles.cell, styles.headerCell]}>Crop Type</Text>
             <Text style={[styles.cell, styles.headerCell]}>Color</Text>
             <Text style={[styles.cell, styles.headerCell]}>Condition</Text>
             <Text style={[styles.cell, styles.headerCell]}>Size</Text>
@@ -117,6 +119,7 @@ const SortingHistoryScreen: React.FC = () => {
           />
         </View>
 
+        {/* Date Picker Modal */}
         <DateTimePickerModal
           isVisible={isDatePickerVisible}
           mode="date"
@@ -124,7 +127,8 @@ const SortingHistoryScreen: React.FC = () => {
           onCancel={() => setDatePickerVisible(false)}
         />
       </View>
-      <BottomNavBar/>
+    </ScrollView>       
+      <BottomNavBar />
     </SafeAreaView>
   );
 };
@@ -132,68 +136,84 @@ const SortingHistoryScreen: React.FC = () => {
 export default SortingHistoryScreen;
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#f2f3f5' },
-  container: { flex: 1, padding: 20 },
-  header: { fontSize: 24, fontWeight: '700', marginBottom: 16 },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#e8e8e8', 
+  },
+  container: {
+    flex: 1,
+    margin: 8,
+  },
+  header: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#111',
+    marginBottom: 18,
+  },
   filterRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   datePicker: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#bbb',
     backgroundColor: '#fff',
-    borderRadius: 8,
+    borderRadius: 6,
     paddingHorizontal: 10,
     height: 40,
-    flex: 0.65,
+    flex: 0.64,
   },
-  dateText: { flex: 1, color: '#333' },
+  dateText: {
+    flex: 1,
+    color: '#333',
+    fontSize: 14,
+  },
   sortPicker: {
-    flex: 0.32,
+    flex: 0.33,
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
+    borderColor: '#bbb',
+    borderRadius: 6,
     backgroundColor: '#fff',
     height: 40,
     overflow: 'hidden',
+    justifyContent: 'center',
   },
-  table: {
+  tableCard: {
     backgroundColor: '#fff',
     borderRadius: 10,
-    paddingBottom: 10,
-    elevation: 4,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
   },
   tableHeader: {
     flexDirection: 'row',
-    backgroundColor: '#f4f4f4',
-    paddingVertical: 8,
-    borderTopLeftRadius: 10,
-    borderTopRightRadius: 10,
+    backgroundColor: '#f5f5f5',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
   },
   tableRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderColor: '#eee',
-    paddingVertical: 6,
+    paddingVertical: 8,
   },
   cell: {
     flex: 1,
     fontSize: 13,
-    textAlign: 'center',
     color: '#333',
+    textAlign: 'center',
   },
   headerCell: {
     fontWeight: '700',
     fontSize: 14,
-    color: '#222',
+    color: '#111',
   },
 });

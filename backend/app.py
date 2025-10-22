@@ -49,7 +49,12 @@ def handle_frame(data):
             })
 
         # Emit detections
-        emit('detections', {'detections': detections})
+        height, width = img.shape[:2]
+        emit('detections', {
+            'detections': detections,
+            'image_size': {'width': width, 'height': height}
+        })
+
 
         print(f"✅ Frame processed in {time.time() - start_time:.2f}s — {len(detections)} detections")
 
@@ -59,3 +64,4 @@ def handle_frame(data):
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000, debug=False)
+    

@@ -34,9 +34,9 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ isDarkMode = false }) => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, BottomNavRoute>>();
   
-  const activeColor = '#2563EB';
-  const inactiveColor = isDarkMode ? '#9CA3AF' : '#6B7280';
-  const backgroundColor = isDarkMode ? '#1F2937' : '#FFFFFF';
+  const activeColor = '#25ebb6ff';
+  const inactiveColor = isDarkMode ? '#9CA3AF' : '#fff';
+  const backgroundColor = isDarkMode ? '#1F2937' : '#3d8209bd';
   const borderColor = isDarkMode ? '#374151' : '#E5E7EB';
 
   const isActive = (routeName: string) => {
@@ -67,7 +67,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ isDarkMode = false }) => {
             activeOpacity={0.7}
           >
             <View style={styles.iconContainer}>
-              <Ionicons name={item.icon} size={24} color="#333" />
+              <Ionicons name={item.icon} size={24} color="#fff" />
               {active && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
             </View>
             <Text
@@ -94,7 +94,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     paddingHorizontal: 8,
     elevation: 8,
-    shadowColor: '#000',
+    shadowColor: '#fff',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,

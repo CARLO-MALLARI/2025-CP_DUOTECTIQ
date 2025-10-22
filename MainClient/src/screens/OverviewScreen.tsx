@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, ScrollView, Image, StyleSheet} from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { theme } from '../styles/theme'; // adjust path if needed
+import { theme } from '../styles/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BottomNavBar from '../components/BottomNavbar';
 
@@ -9,10 +9,8 @@ const OverviewScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 80 }}>
-      {/* ===== Title ===== */}
       <Text style={styles.title}>Crop Qualities Overview</Text>
 
-      {/* ===== Quality Assessment Criteria ===== */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Ionicons name="ribbon-outline" size={20} color={theme.colors.primary} />

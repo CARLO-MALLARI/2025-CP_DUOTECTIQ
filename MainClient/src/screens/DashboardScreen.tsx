@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import Header from '../components/Header';
 import BottomNavBar from '../components/BottomNavbar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 

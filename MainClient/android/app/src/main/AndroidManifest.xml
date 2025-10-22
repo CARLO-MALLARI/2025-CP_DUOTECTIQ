@@ -2,7 +2,11 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
-
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    
     <application
       android:name=".MainApplication"
       android:label="@string/app_name"
@@ -11,6 +15,12 @@
       android:allowBackup="false"
       android:theme="@style/AppTheme"
       android:supportsRtl="true">
+      <meta-data
+        android:name="com.mrousavy.camera.DISABLE_RUNTIME_PERMISSION_CHECK"
+        android:value="false" />
+      <meta-data
+        android:name="com.mrousavy.camera.enableFrameProcessorPlatformAndroid"
+        android:value="false" />
       <activity
         android:name=".MainActivity"
         android:label="@string/app_name"

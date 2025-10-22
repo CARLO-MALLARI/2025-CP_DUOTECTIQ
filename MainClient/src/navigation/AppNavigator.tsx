@@ -9,6 +9,7 @@ import SortingHistoryScreen from '../screens/SortingHistoryScreen';
 import OverviewScreen from '../screens/OverviewScreen';
 import AuthStack from './AuthStack';
 import { theme } from '../styles/theme';
+import CustomHeader from '../components/CustomHeader';
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -28,11 +29,16 @@ const AppNavigator: React.FC = () => {
     <NavigationContainer>
       <Stack.Navigator 
         screenOptions={{
-          headerStyle: { backgroundColor: theme.colors.primary },
-          headerTintColor: '#fff',
-          headerTitleStyle: { fontWeight: 'bold' },
-        }}>
-        {user ? (
+          header: () =>  <CustomHeader  />,
+          animation: 'fade',
+        }}
+        >
+            <Stack.Screen name="Scan" component={ScanScreen} />
+            <Stack.Screen name="DashboardScreen" component={DashboardScreen} />
+            <Stack.Screen name="Settings" component={SettingsScreen} />
+            <Stack.Screen name="SortingHistoryScreen" component={SortingHistoryScreen} />
+            <Stack.Screen name="OverviewScreen" component={OverviewScreen} />
+        {/* {user ? (
           <>
             <Stack.Screen name="Scan" component={ScanScreen} />
             <Stack.Screen name="DashboardScreen" component={DashboardScreen} />
@@ -42,7 +48,7 @@ const AppNavigator: React.FC = () => {
           </>
         ) : (
           <Stack.Screen name="Auth" component={AuthStack}  options={{ headerShown: false }}/>
-        )}
+        )} */}
       </Stack.Navigator>
     </NavigationContainer>
   );

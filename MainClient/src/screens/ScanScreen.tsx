@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SafeAreaView, View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Linking } from 'react-native';
+import { SafeAreaView, View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Camera, useCameraDevices } from 'react-native-vision-camera';
 import { useColorScheme } from 'react-native';
 import { Colors } from 'react-native/Libraries/NewAppScreen';
@@ -7,9 +7,8 @@ import io from 'socket.io-client';
 import RNFS from 'react-native-fs';
 import ImageResizer from 'react-native-image-resizer';
 import BottomNavBar from '../components/BottomNavbar';
-import Header from '../components/Header';
 
-const SERVER_URL = 'http://192.168.100.2:5000'; // Change to your IP
+const SERVER_URL = 'http://10.0.11.197:5000';
 const FRAME_INTERVAL = 500;
 
 const ScanScreen: React.FC = () => {
@@ -17,32 +16,34 @@ const ScanScreen: React.FC = () => {
   const [cameraPermission, setCameraPermission] = useState<string | null>(null);
   const [detections, setDetections] = useState<any[]>([]);
   const [results, setResults] = useState<string>('No results yet');
-
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [connected, setConnected] = useState<boolean>(false);
+  const [cameraReady, setCameraReady] = useState(false);
+
   const socketRef = useRef<any>(null);
   const cameraRef = useRef<Camera>(null);
+  const streamInterval = useRef<NodeJS.Timeout | null>(null);
+  const isCapturingRef = useRef<boolean>(false);
+  const permissionCheckedRef = useRef<boolean>(false);
+  
   const devices = useCameraDevices();
   const device = devices.find((d) => d.position === 'back') ?? devices[0];
-  const streamInterval = useRef<NodeJS.Timeout | null>(null);
+  const cameraWidthRef = useRef(0);
+  const cameraHeightRef = useRef(0);
 
   useEffect(() => {
-    const checkPermission = async () => {
-      try {
-        const status = await Camera.getCameraPermissionStatus();
-        console.log('Initial camera permission:', status);
-        if (status === 'not-determined') {
-          const newStatus = await Camera.requestCameraPermission();
-          setCameraPermission(newStatus);
-        } else {
-          setCameraPermission(status);
-        }
-      } catch (error) {
-        console.error('Permission check error:', error);
+    const setupPermission = async () => {
+      const current = await Camera.getCameraPermissionStatus();
+      if (current !== 'granted') {
+        const newStatus = await Camera.requestCameraPermission();
+        setCameraPermission(newStatus);
+      } else {
+        setCameraPermission(current);
       }
     };
-    checkPermission();
+    setupPermission();
   }, []);
+
 
   useEffect(() => {
     const init = async () => {
@@ -52,14 +53,17 @@ const ScanScreen: React.FC = () => {
           reconnectionAttempts: 5,
           reconnectionDelay: 2000,
         });
+        
         socketRef.current.on('connect', () => {
           console.log('Socket connected');
           setConnected(true);
         });
+        
         socketRef.current.on('disconnect', () => {
           console.log('Socket disconnected');
           setConnected(false);
         });
+        
         socketRef.current.on('detections', (data: any) => {
           console.log('Received detections:', data);
           setDetections(data.detections || []);
@@ -70,6 +74,7 @@ const ScanScreen: React.FC = () => {
           console.error('Socket connection error:', err.message);
           setConnected(false);
         });
+        
         socketRef.current.on('error', (err: any) => {
           console.error('Socket error:', err);
         });
@@ -80,43 +85,72 @@ const ScanScreen: React.FC = () => {
     init();
 
     return () => {
+      if (streamInterval.current) {
+        clearInterval(streamInterval.current);
+      }
       socketRef.current?.disconnect();
-      if (streamInterval.current) clearInterval(streamInterval.current);
     };
   }, []);
 
   const captureAndSend = async () => {
-    if (!cameraRef.current || !connected) {
-      console.warn('Cannot capture: cameraRef:', !!cameraRef.current, 'connected:', connected);
+    // Prevent concurrent captures
+    if (!cameraRef.current || !connected || isCapturingRef.current) {
       return;
     }
+    
+    isCapturingRef.current = true;
+    
     try {
-      console.log('Capturing photo...');
-      const photo = await cameraRef.current.takePhoto();
-      console.log('Photo captured:', photo.path);
+      // Use fast capture settings to avoid permission dialog
+      const photo = await cameraRef.current.takeSnapshot({
+        quality: 50
+      });
 
-      const resized = await ImageResizer.createResizedImage(photo.path, 640, 480, 'JPEG', 60);
-      console.log('Resized image:', resized.uri);
+      // Resize image for faster processing
+      const resized = await ImageResizer.createResizedImage(
+        photo.path, 
+        640, 
+        480, 
+        'JPEG', 
+        60,
+        0,
+        undefined,
+        false,
+        { mode: 'contain', onlyScaleDown: true }
+      );
 
       const base64Image = await RNFS.readFile(resized.uri, 'base64');
       const encoded = `data:image/jpeg;base64,${base64Image}`;
-      console.log('Encoded image length:', encoded.length);
 
       if (encoded && encoded.startsWith('data:image')) {
         socketRef.current.emit('frame', encoded);
-        console.log('Frame sent to server');
-      } else {
-        console.error('Invalid base64 encoding');
+        console.log('Frame sent');
       }
-    } catch (error) {
-      console.error('Frame send error:', error);
-      setResults('Error capturing frame');
+      
+      // Clean up resized image
+      await RNFS.unlink(resized.uri).catch(() => {});
+      
+    } catch (error: any) {
+      // Log error but don't stop streaming
+      console.error('Frame capture error:', error.message);
+      
+      // If permission error, stop streaming
+      if (error.message?.includes('permission')) {
+        setIsStreaming(false);
+        if (streamInterval.current) {
+          clearInterval(streamInterval.current);
+          streamInterval.current = null;
+        }
+        setResults('Camera permission error. Please restart.');
+      }
+    } finally {
+      isCapturingRef.current = false;
     }
   };
 
-  // Toggle streaming loop
-  const toggleStreaming = () => {
+  const toggleStreaming = async () => {  // Make async to await permission if needed
     if (isStreaming) {
+      // Stop logic unchanged
       if (streamInterval.current) {
         clearInterval(streamInterval.current);
         streamInterval.current = null;
@@ -125,10 +159,36 @@ const ScanScreen: React.FC = () => {
       setResults('Stopped streaming');
       console.log('Streaming stopped');
     } else {
-      streamInterval.current = setInterval(captureAndSend, FRAME_INTERVAL);
+      // Check permission before starting
+      let perm = cameraPermission;
+      if (perm === 'not-determined') {
+        perm = await Camera.requestCameraPermission();
+        setCameraPermission(perm);
+      }
+      if (perm !== 'granted') {
+        setResults('Camera permission required. Please grant access.');
+        return;  // Don't start if not granted
+      }
+
+      // Start streaming (unchanged)
       setIsStreaming(true);
       setResults('Streaming...');
       console.log('Streaming started');
+      const waitForReady = async () => {
+        let retries = 0;
+        while (!cameraReady && retries < 10) {
+          await new Promise(r => setTimeout(r, 300));
+          retries++;
+        }
+        if (cameraReady) captureAndSend();
+        streamInterval.current = setInterval(() => {
+          if (cameraReady) captureAndSend();
+        }, FRAME_INTERVAL);
+      };
+      waitForReady();
+      streamInterval.current = setInterval(() => {
+        captureAndSend();
+      }, FRAME_INTERVAL);
     }
   };
 
@@ -143,33 +203,33 @@ const ScanScreen: React.FC = () => {
       <SafeAreaView style={backgroundStyle}>
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={textColor} />
-          <Text style={[styles.statusText, { color: textColor }]}>Checking camera permission...</Text>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (cameraPermission !== 'granted' || !device) {
-    return (
-      <SafeAreaView style={backgroundStyle}>
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={textColor} />
           <Text style={[styles.statusText, { color: textColor }]}>
-            {cameraPermission !== 'granted'
-              ? 'Waiting for camera permission...'
-              : 'Loading camera device...'}
+            Checking camera permission...
           </Text>
         </View>
       </SafeAreaView>
     );
   }
 
+  if (cameraPermission !== 'granted') {
+    return (
+      <SafeAreaView style={backgroundStyle}>
+        <View style={styles.centered}>
+          <Text style={[styles.statusText, { color: textColor }]}>
+            Camera permission denied. Please enable camera access in your device settings.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (!device) {
     return (
       <SafeAreaView style={backgroundStyle}>
         <View style={styles.centered}>
-          <Text style={[styles.statusText, { color: textColor }]}>No camera device found</Text>
+          <Text style={[styles.statusText, { color: textColor }]}>
+            No camera device found
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -178,60 +238,94 @@ const ScanScreen: React.FC = () => {
   return (
     <SafeAreaView style={backgroundStyle}>
       <View style={styles.container}>
-        <View style={styles.cameraContainer}>
+        <View 
+          style={styles.cameraContainer}
+          onLayout={(e) => {
+            const { width, height } = e.nativeEvent.layout;
+            cameraWidthRef.current = width;
+            cameraHeightRef.current = height;
+          }}>
           <Camera
             ref={cameraRef}
             style={styles.camera}
             device={device}
-            isActive={true}
+            isActive={isStreaming && cameraPermission === 'granted'}
             photo={true}
+            onInitialized={() => setCameraReady(true)}
+            onError={(error: any) => console.error('Camera error:', error?.message ?? error)}
           />
           
           {/* Overlay layer */}
-          <View style={StyleSheet.absoluteFill}>
-            {detections.map((det, index) => {
-              const [x1, y1, x2, y2] = det.bbox;
-              return (
-                <View
-                  key={index}
-                  style={{
-                    position: 'absolute',
-                    left: x1,
-                    top: y1,
-                    width: x2 - x1,
-                    height: y2 - y1,
-                    borderWidth: 2,
-                    borderColor: '#00FF00',
-                    borderRadius: 4,
-                  }}
-                >
-                  <Text style={styles.label}>
-                    {det.class} ({(det.confidence * 100).toFixed(1)}%)
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          {detections.map((det, index) => {
+            if (!det || !det.bbox) return null;
+            const [x1, y1, x2, y2] = det.bbox;
+
+            // Scale boxes based on model input size vs actual preview
+            const modelW = det.image_size?.width || 640;
+            const modelH = det.image_size?.height || 480;
+
+            // Measure your actual preview size
+            const previewW = cameraWidthRef.current || 640;
+            const previewH = cameraHeightRef.current || 480;
+
+            const scaleX = previewW / modelW;
+            const scaleY = previewH / modelH;
+
+            return (
+              <View
+                key={index}
+                style={{
+                  position: 'absolute',
+                  left: x1 * scaleX,
+                  top: y1 * scaleY,
+                  width: (x2 - x1) * scaleX,
+                  height: (y2 - y1) * scaleY,
+                  borderWidth: 2,
+                  borderColor: '#00FF00',
+                  borderRadius: 4,
+                }}
+              >
+                <Text style={styles.label}>
+                  {det.class} ({(det.confidence * 100).toFixed(1)}%)
+                </Text>
+              </View>
+            );
+          })}
         </View>
+
+        </View>
+        
         <Text style={[styles.statusText, { color: textColor, textAlign: 'center' }]}>
           {connected ? 'Connected to server ✅' : 'Connecting...'}
         </Text>
+        
         <View style={styles.resultsContainer}>
           <Text style={[styles.resultsTitle, { color: textColor }]}>Detections</Text>
           <Text style={[styles.resultsText, { color: textColor }]} numberOfLines={8}>
             {results}
           </Text>
         </View>
+        
         <View style={styles.controlPanel}>
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: isStreaming ? '#DC2626' : '#2563EB' }]}
+            style={[
+              styles.button, 
+              { 
+                backgroundColor: isStreaming ? '#DC2626' : '#2563EB',
+                opacity: connected ? 1 : 0.5
+              }
+            ]}
             onPress={toggleStreaming}
+            disabled={!connected}
           >
-            <Text style={styles.buttonText}>{isStreaming ? 'Stop Stream' : 'Start Stream'}</Text>
+            <Text style={styles.buttonText}>
+              {isStreaming ? 'Stop Stream' : 'Start Stream'}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
-      <BottomNavBar isDarkMode={isDarkMode} />
+      <BottomNavBar />
     </SafeAreaView>
   );
 };
@@ -274,4 +368,4 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 18, marginTop: 16 },
 });
 
-export default ScanScreen;
+export default ScanScreen
