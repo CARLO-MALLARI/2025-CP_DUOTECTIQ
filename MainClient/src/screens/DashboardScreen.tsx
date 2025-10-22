@@ -12,7 +12,7 @@ const DashboardScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.wrapper}>
-        <ScrollView contentContainerStyle={styles.container}>
+        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
           {/* ===== Dashboard Overview ===== */}
           <Text style={styles.sectionTitle}>Dashboard Overview</Text>
 

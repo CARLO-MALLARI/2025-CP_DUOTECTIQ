@@ -54,8 +54,7 @@ const SortingHistoryScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
       
-      <ScrollView style={styles.container}>
-      <View style={styles.container}>
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         {/* Header Title */}
         <Text style={styles.header}>Sorting History</Text>
 
@@ -126,7 +125,6 @@ const SortingHistoryScreen: React.FC = () => {
           onConfirm={handleConfirm}
           onCancel={() => setDatePickerVisible(false)}
         />
-      </View>
     </ScrollView>       
       <BottomNavBar />
     </SafeAreaView>
@@ -142,7 +140,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    margin: 8,
+    margin: 16,
   },
   header: {
     fontSize: 22,

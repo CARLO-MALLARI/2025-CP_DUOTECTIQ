@@ -8,7 +8,7 @@ import BottomNavBar from '../components/BottomNavbar';
 const OverviewScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.safeArea}>
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 80 }}>
+    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 80 }} showsVerticalScrollIndicator={false}>
       <Text style={styles.title}>Crop Qualities Overview</Text>
 
       <View style={styles.section}>
