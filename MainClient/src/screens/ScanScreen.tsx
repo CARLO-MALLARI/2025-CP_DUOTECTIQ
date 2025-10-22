@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SafeAreaView, View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import {
+  SafeAreaView,
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Image,
+} from 'react-native';
 import { Camera, useCameraDevices } from 'react-native-vision-camera';
 import { useColorScheme } from 'react-native';
 import { Colors } from 'react-native/Libraries/NewAppScreen';
@@ -7,8 +15,9 @@ import io from 'socket.io-client';
 import RNFS from 'react-native-fs';
 import ImageResizer from 'react-native-image-resizer';
 import BottomNavBar from '../components/BottomNavbar';
+import { auth } from '../lib/firebase';
 
-const SERVER_URL = 'http://10.0.11.197:5000';
+const SERVER_URL = 'http://10.163.17.143:5000';
 const FRAME_INTERVAL = 500;
 
 const ScanScreen: React.FC = () => {
@@ -24,8 +33,7 @@ const ScanScreen: React.FC = () => {
   const cameraRef = useRef<Camera>(null);
   const streamInterval = useRef<NodeJS.Timeout | null>(null);
   const isCapturingRef = useRef<boolean>(false);
-  const permissionCheckedRef = useRef<boolean>(false);
-  
+
   const devices = useCameraDevices();
   const device = devices.find((d) => d.position === 'back') ?? devices[0];
   const cameraWidthRef = useRef(0);
@@ -44,74 +52,37 @@ const ScanScreen: React.FC = () => {
     setupPermission();
   }, []);
 
-
   useEffect(() => {
-    const init = async () => {
-      try {
-        socketRef.current = io(SERVER_URL, {
-          transports: ['websocket'],
-          reconnectionAttempts: 5,
-          reconnectionDelay: 2000,
-        });
-        
-        socketRef.current.on('connect', () => {
-          console.log('Socket connected');
-          setConnected(true);
-        });
-        
-        socketRef.current.on('disconnect', () => {
-          console.log('Socket disconnected');
-          setConnected(false);
-        });
-        
-        socketRef.current.on('detections', (data: any) => {
-          console.log('Received detections:', data);
-          setDetections(data.detections || []);
-          setResults(JSON.stringify(data.detections, null, 2));
-        });
+    socketRef.current = io(SERVER_URL, {
+      transports: ['websocket'],
+      reconnectionAttempts: 5,
+      reconnectionDelay: 2000,
+    });
 
-        socketRef.current.on('connect_error', (err: any) => {
-          console.error('Socket connection error:', err.message);
-          setConnected(false);
-        });
-        
-        socketRef.current.on('error', (err: any) => {
-          console.error('Socket error:', err);
-        });
-      } catch (error) {
-        console.error('Socket init error:', error);
-      }
-    };
-    init();
+    socketRef.current.on('connect', () => setConnected(true));
+    socketRef.current.on('disconnect', () => setConnected(false));
+    socketRef.current.on('detections', (data: any) => {
+      setDetections(data.detections || []);
+      setResults(JSON.stringify(data.detections, null, 2));
+    });
 
     return () => {
-      if (streamInterval.current) {
-        clearInterval(streamInterval.current);
-      }
+      if (streamInterval.current) clearInterval(streamInterval.current);
       socketRef.current?.disconnect();
     };
   }, []);
 
   const captureAndSend = async () => {
-    // Prevent concurrent captures
-    if (!cameraRef.current || !connected || isCapturingRef.current) {
-      return;
-    }
-    
+    if (!cameraRef.current || !connected || isCapturingRef.current) return;
     isCapturingRef.current = true;
-    
-    try {
-      // Use fast capture settings to avoid permission dialog
-      const photo = await cameraRef.current.takeSnapshot({
-        quality: 50
-      });
 
-      // Resize image for faster processing
+    try {
+      const photo = await cameraRef.current.takeSnapshot({ quality: 50 });
       const resized = await ImageResizer.createResizedImage(
-        photo.path, 
-        640, 
-        480, 
-        'JPEG', 
+        photo.path,
+        640,
+        480,
+        'JPEG',
         60,
         0,
         undefined,
@@ -121,157 +92,98 @@ const ScanScreen: React.FC = () => {
 
       const base64Image = await RNFS.readFile(resized.uri, 'base64');
       const encoded = `data:image/jpeg;base64,${base64Image}`;
-
-      if (encoded && encoded.startsWith('data:image')) {
-        socketRef.current.emit('frame', encoded);
-        console.log('Frame sent');
-      }
-      
-      // Clean up resized image
+      socketRef.current.emit('frame', encoded);
       await RNFS.unlink(resized.uri).catch(() => {});
-      
     } catch (error: any) {
-      // Log error but don't stop streaming
       console.error('Frame capture error:', error.message);
-      
-      // If permission error, stop streaming
-      if (error.message?.includes('permission')) {
-        setIsStreaming(false);
-        if (streamInterval.current) {
-          clearInterval(streamInterval.current);
-          streamInterval.current = null;
-        }
-        setResults('Camera permission error. Please restart.');
-      }
     } finally {
       isCapturingRef.current = false;
     }
   };
 
-  const toggleStreaming = async () => {  // Make async to await permission if needed
+  const toggleStreaming = async () => {
     if (isStreaming) {
-      // Stop logic unchanged
-      if (streamInterval.current) {
-        clearInterval(streamInterval.current);
-        streamInterval.current = null;
-      }
+      if (streamInterval.current) clearInterval(streamInterval.current);
       setIsStreaming(false);
       setResults('Stopped streaming');
-      console.log('Streaming stopped');
-    } else {
-      // Check permission before starting
-      let perm = cameraPermission;
-      if (perm === 'not-determined') {
-        perm = await Camera.requestCameraPermission();
-        setCameraPermission(perm);
-      }
-      if (perm !== 'granted') {
-        setResults('Camera permission required. Please grant access.');
-        return;  // Don't start if not granted
-      }
-
-      // Start streaming (unchanged)
-      setIsStreaming(true);
-      setResults('Streaming...');
-      console.log('Streaming started');
-      const waitForReady = async () => {
-        let retries = 0;
-        while (!cameraReady && retries < 10) {
-          await new Promise(r => setTimeout(r, 300));
-          retries++;
-        }
-        if (cameraReady) captureAndSend();
-        streamInterval.current = setInterval(() => {
-          if (cameraReady) captureAndSend();
-        }, FRAME_INTERVAL);
-      };
-      waitForReady();
-      streamInterval.current = setInterval(() => {
-        captureAndSend();
-      }, FRAME_INTERVAL);
+      return;
     }
-  };
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
-    flex: 1,
+    if (cameraPermission !== 'granted') {
+      const perm = await Camera.requestCameraPermission();
+      setCameraPermission(perm);
+      if (perm !== 'granted') return;
+    }
+
+    setIsStreaming(true);
+    setResults('Streaming...');
+    streamInterval.current = setInterval(captureAndSend, FRAME_INTERVAL);
   };
-  const textColor = isDarkMode ? Colors.white : Colors.black;
 
   if (cameraPermission === null) {
     return (
-      <SafeAreaView style={backgroundStyle}>
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={textColor} />
-          <Text style={[styles.statusText, { color: textColor }]}>
-            Checking camera permission...
-          </Text>
-        </View>
+      <SafeAreaView style={styles.centered}>
+        <ActivityIndicator size="large" />
+        <Text>Checking camera permission...</Text>
       </SafeAreaView>
     );
   }
 
   if (cameraPermission !== 'granted') {
     return (
-      <SafeAreaView style={backgroundStyle}>
-        <View style={styles.centered}>
-          <Text style={[styles.statusText, { color: textColor }]}>
-            Camera permission denied. Please enable camera access in your device settings.
-          </Text>
-        </View>
+      <SafeAreaView style={styles.centered}>
+        <Text>Please enable camera access in settings.</Text>
       </SafeAreaView>
     );
   }
 
   if (!device) {
     return (
-      <SafeAreaView style={backgroundStyle}>
-        <View style={styles.centered}>
-          <Text style={[styles.statusText, { color: textColor }]}>
-            No camera device found
-          </Text>
-        </View>
+      <SafeAreaView style={styles.centered}>
+        <Text>No camera found</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <View style={styles.container}>
-        <View 
-          style={styles.cameraContainer}
-          onLayout={(e) => {
-            const { width, height } = e.nativeEvent.layout;
-            cameraWidthRef.current = width;
-            cameraHeightRef.current = height;
-          }}>
-          <Camera
-            ref={cameraRef}
-            style={styles.camera}
-            device={device}
-            isActive={isStreaming && cameraPermission === 'granted'}
-            photo={true}
-            onInitialized={() => setCameraReady(true)}
-            onError={(error: any) => console.error('Camera error:', error?.message ?? error)}
-          />
-          
-          {/* Overlay layer */}
-          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+    <SafeAreaView style={styles.container}>
+      {/* CAMERA PREVIEW */}
+      <View
+        style={styles.cameraContainer}
+        onLayout={(e) => {
+          const { width, height } = e.nativeEvent.layout;
+          cameraWidthRef.current = width;
+          cameraHeightRef.current = height;
+        }}
+      >
+        <TouchableOpacity
+          onPress={toggleStreaming}
+          style={[
+            styles.startButton,
+            { backgroundColor: isStreaming ? '#DC2626' : '#2E7D32' },
+          ]}
+        >
+          <Text style={styles.startButtonText}>
+            {isStreaming ? '■ Stop' : '▶ Start'}
+          </Text>
+        </TouchableOpacity>
+        <Camera
+          ref={cameraRef}
+          style={styles.camera}
+          device={device}
+          isActive={isStreaming}
+          photo={true}
+          onInitialized={() => setCameraReady(true)}
+          onError={(err) => console.error(err)}
+        />
+
+        {/* DETECTION OVERLAY */}
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
           {detections.map((det, index) => {
-            if (!det || !det.bbox) return null;
+            if (!det?.bbox) return null;
             const [x1, y1, x2, y2] = det.bbox;
-
-            // Scale boxes based on model input size vs actual preview
-            const modelW = det.image_size?.width || 640;
-            const modelH = det.image_size?.height || 480;
-
-            // Measure your actual preview size
-            const previewW = cameraWidthRef.current || 640;
-            const previewH = cameraHeightRef.current || 480;
-
-            const scaleX = previewW / modelW;
-            const scaleY = previewH / modelH;
-
+            const scaleX = (cameraWidthRef.current / 640) || 1;
+            const scaleY = (cameraHeightRef.current / 480) || 1;
             return (
               <View
                 key={index}
@@ -281,8 +193,8 @@ const ScanScreen: React.FC = () => {
                   top: y1 * scaleY,
                   width: (x2 - x1) * scaleX,
                   height: (y2 - y1) * scaleY,
-                  borderWidth: 2,
                   borderColor: '#00FF00',
+                  borderWidth: 2,
                   borderRadius: 4,
                 }}
               >
@@ -293,79 +205,133 @@ const ScanScreen: React.FC = () => {
             );
           })}
         </View>
+      </View>
 
+      {/* LEGEND */}
+      <View style={styles.legendRow}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: 'green' }]} />
+          <Text style={styles.legendText}>Not Damaged Green</Text>
         </View>
-        
-        <Text style={[styles.statusText, { color: textColor, textAlign: 'center' }]}>
-          {connected ? 'Connected to server ✅' : 'Connecting...'}
-        </Text>
-        
-        <View style={styles.resultsContainer}>
-          <Text style={[styles.resultsTitle, { color: textColor }]}>Detections</Text>
-          <Text style={[styles.resultsText, { color: textColor }]} numberOfLines={8}>
-            {results}
-          </Text>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: 'orange' }]} />
+          <Text style={styles.legendText}>Damaged</Text>
         </View>
-        
-        <View style={styles.controlPanel}>
-          <TouchableOpacity
-            style={[
-              styles.button, 
-              { 
-                backgroundColor: isStreaming ? '#DC2626' : '#2563EB',
-                opacity: connected ? 1 : 0.5
-              }
-            ]}
-            onPress={toggleStreaming}
-            disabled={!connected}
-          >
-            <Text style={styles.buttonText}>
-              {isStreaming ? 'Stop Stream' : 'Start Stream'}
-            </Text>
-          </TouchableOpacity>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: 'red' }]} />
+          <Text style={styles.legendText}>Not Damaged Red</Text>
         </View>
       </View>
-      <BottomNavBar />
+
+      {/* CLASSIFICATION COUNTER */}
+      <Text style={styles.title}>Classification Counter</Text>
+
+      <View style={styles.counterContainer}>
+        {['Tomato', 'Bellpepper'].map((label, idx) => (
+          <View key={idx} style={styles.counterColumn}>
+            <Text style={styles.counterHeader}>{label}</Text>
+            {['Small', 'Medium', 'Large'].map((size) => (
+              <View style={styles.counterRow} key={size}>
+                <View style={[styles.counterBox, { backgroundColor: '#22C55E' }]}>
+                  <Text style={styles.counterValue}>0</Text>
+                </View>
+                <Text style={styles.counterLabel}>{size}</Text>
+                <View style={[styles.counterBox, { backgroundColor: '#F59E0B' }]}>
+                  <Text style={styles.counterValue}>0</Text>
+                </View>
+                <View style={[styles.counterBox, { backgroundColor: '#DC2626' }]}>
+                  <Text style={styles.counterValue}>0</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        ))}
+      </View>
+        
+    <BottomNavBar />
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  cameraContainer: {
-    flex: 3,
-    borderRadius: 12,
-    overflow: 'hidden',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+  container: { flex: 1, backgroundColor: '#f4f4f4', alignItems: 'center' },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  startButton: {
+    position: 'absolute',
+    top: 10, // adjust vertically
+    left: 10, // adjust horizontally
+    backgroundColor: '#007a33',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 5,
+    zIndex: 10,
   },
+  startButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
+  logoContainer: { flexDirection: 'row', alignItems: 'center' },
+  logo: { width: 30, height: 30, marginRight: 6 },
+  logoText: { fontSize: 22, fontWeight: 'bold', color: '#fff' },
+
+  cameraContainer: {
+    position: 'relative',
+    width: '90%',
+    height: 250,
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginVertical: 10,
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  camera: { flex: 1 },
   label: {
     position: 'absolute',
     top: -20,
     left: 0,
-    backgroundColor: 'rgba(0, 255, 0, 0.7)',
+    backgroundColor: 'rgba(0,255,0,0.7)',
     color: '#000',
     paddingHorizontal: 4,
     fontSize: 12,
-    borderTopLeftRadius: 4,
-    borderTopRightRadius: 4,
+    borderRadius: 4,
   },
-  camera: { flex: 1 },
-  resultsContainer: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.05)',
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 16,
+
+  legendRow: { flexDirection: 'row', justifyContent: 'center', marginVertical: 4 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 6 },
+  legendDot: { width: 10, height: 10, borderRadius: 5, marginRight: 4 },
+  legendText: { fontSize: 12 },
+
+  title: { fontWeight: 'bold', fontSize: 18, marginVertical: 8 },
+
+  counterContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '90%',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingVertical: 10,
+    marginBottom: 15,
+    elevation: 2,
   },
-  resultsTitle: { fontSize: 20, fontWeight: '600', marginBottom: 8 },
-  resultsText: { fontSize: 14, lineHeight: 18 },
-  controlPanel: { flexDirection: 'row', justifyContent: 'center' },
-  button: { paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8 },
-  buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '500' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  statusText: { fontSize: 18, marginTop: 16 },
+  counterColumn: { alignItems: 'center' },
+  counterHeader: { fontSize: 16, fontWeight: 'bold', marginBottom: 8 },
+  counterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+    justifyContent: 'center',
+  },
+  counterBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 3,
+  },
+  counterValue: { color: 'white', fontWeight: 'bold' },
+  counterLabel: { width: 50, textAlign: 'center', fontSize: 12 },
 });
 
-export default ScanScreen
+export default ScanScreen;

@@ -1,0 +1,84 @@
+[
+  {
+    "title": "Defects of Tomato",
+    "items": [
+      {
+        "name": "Blemish / Scar",
+        "image": "../assets/images/tomato/blemish.png",
+        "crop": "TOMATO",
+        "looks": "Superficial tan or brown scars, corky or rough patches on the surface.",
+        "cause": "Mechanical injury or rubbing against stems or branches during growth.",
+        "prevention": "Handle fruits carefully and provide plant support to minimize friction."
+      },
+      {
+        "name": "Worm Bite / Insect Hole",
+        "image": "../assets/images/tomato/wormbite.png",
+        "crop": "TOMATO",
+        "looks": "Visible small holes, tunnels, or eaten areas on the tomato surface.",
+        "cause": "Insect pests like fruitworms and caterpillars feeding on the fruit.",
+        "prevention": "Use insect nets, natural repellents, or biological pest control methods."
+      },
+      {
+        "name": "Sunscald",
+        "image": "../assets/images/tomato/sunscald.png",
+        "crop": "TOMATO",
+        "looks": "White or pale patches on sun-exposed areas that later turn papery or sunken.",
+        "cause": "Overexposure to direct sunlight especially after leaf loss.",
+        "prevention": "Maintain good leaf cover; avoid heavy pruning and sudden exposure."
+      },
+      {
+        "name": "Cracks / Split",
+        "image": "../assets/images/tomato/crack.png",
+        "crop": "TOMATO",
+        "looks": "Circular or radial cracks around the stem end of the fruit.",
+        "cause": "Irregular watering or sudden rain after dry periods.",
+        "prevention": "Water regularly and avoid extreme soil moisture changes."
+      }
+    ]
+  },
+  {
+    "title": "Defects of Bell Pepper",
+    "items": [
+      {
+        "name": "Blemish / Scratch",
+        "image": "../assets/images/bellpepper/blemish.png",
+        "crop": "BELL PEPPER",
+        "looks": "Shallow scars or surface abrasions on the fruit skin.",
+        "cause": "Contact with branches, rough handling, or pest feeding.",
+        "prevention": "Handle fruits gently and minimize plant contact with sharp objects."
+      },
+      {
+        "name": "Worm Bite / Chewed Area",
+        "image": "../assets/images/bellpepper/wormbite.png",
+        "crop": "BELL PEPPER",
+        "looks": "Holes or irregularly chewed portions on fruit walls.",
+        "cause": "Chewing insects or caterpillars feeding on developing fruit.",
+        "prevention": "Apply organic insect barriers and remove affected fruits early."
+      },
+      {
+        "name": "Shrivel / Dehydration",
+        "image": "../assets/images/bellpepper/shrivel.png",
+        "crop": "BELL PEPPER",
+        "looks": "Wrinkled or shriveled fruit surface, dull color, and reduced firmness.",
+        "cause": "Loss of moisture during storage or exposure to high temperature.",
+        "prevention": "Store in cool, humid conditions and harvest before over-ripening."
+      },
+      {
+        "name": "Uneven Color",
+        "image": "../assets/images/bellpepper/color.png",
+        "crop": "BELL PEPPER",
+        "looks": "Patchy color or inconsistent ripening on the fruit surface.",
+        "cause": "Nutrient imbalance or inadequate sunlight exposure.",
+        "prevention": "Ensure balanced fertilization and uniform sunlight distribution."
+      },
+      {
+        "name": "Cold Injury (Chilling)",
+        "image": "../assets/images/bellpepper/chilling.png",
+        "crop": "BELL PEPPER",
+        "looks": "Watery, soft, or darkened areas after exposure to cold storage.",
+        "cause": "Exposure to temperatures below 7°C (45°F) during storage or transport.",
+        "prevention": "Store peppers at safe temperature ranges (7–10°C)."
+      }
+    ]
+  }
+]

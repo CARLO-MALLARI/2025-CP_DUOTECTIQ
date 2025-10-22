@@ -1,11 +1,123 @@
-import React from 'react';
-import { View, Text, ScrollView, Image, StyleSheet} from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, Image, StyleSheet, Modal, TouchableOpacity} from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { theme } from '../styles/theme';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BottomNavBar from '../components/BottomNavbar';
 
+const defectsData = [
+  {
+    title: 'Defects of Tomato',
+    items: [
+      {
+        name: 'Blemish / Scar',
+        image: require('../assets/splash.png'),
+        crop: 'TOMATO',
+        looks: 'Superficial tan/brown scars or corky patches.',
+        cause: 'Mechanical injury or rubbing on stem.',
+        prevention: 'Careful handling, avoid sharp tools.',
+      },
+      {
+        name: 'Worm Bite / Insect Hole',
+        image: require('../assets/splash.png'),
+        crop: 'TOMATO',
+        looks: 'Visible holes or tunnels on the surface.',
+        cause: 'Insect feeding during growth.',
+        prevention: 'Use protective nets or organic pest control.',
+      },
+      {
+        name: 'Blemish / Scar',
+        image: require('../assets/splash.png'),
+        crop: 'TOMATO',
+        looks: 'Superficial tan/brown scars or corky patches.',
+        cause: 'Mechanical injury or rubbing on stem.',
+        prevention: 'Careful handling, avoid sharp tools.',
+      },
+      {
+        name: 'Worm Bite / Insect Hole',
+        image: require('../assets/splash.png'),
+        crop: 'TOMATO',
+        looks: 'Visible holes or tunnels on the surface.',
+        cause: 'Insect feeding during growth.',
+        prevention: 'Use protective nets or organic pest control.',
+      },
+      {
+        name: 'Blemish / Scar',
+        image: require('../assets/splash.png'),
+        crop: 'TOMATO',
+        looks: 'Superficial tan/brown scars or corky patches.',
+        cause: 'Mechanical injury or rubbing on stem.',
+        prevention: 'Careful handling, avoid sharp tools.',
+      },
+      {
+        name: 'Worm Bite / Insect Hole',
+        image: require('../assets/splash.png'),
+        crop: 'TOMATO',
+        looks: 'Visible holes or tunnels on the surface.',
+        cause: 'Insect feeding during growth.',
+        prevention: 'Use protective nets or organic pest control.',
+      },
+    ],
+  },
+  {
+    title: 'Defects of Bell Pepper',
+    items: [
+      {
+        name: 'Blemish / Scar',
+        image: require('../assets/splash.png'),
+        crop: 'TOMATO',
+        looks: 'Superficial tan/brown scars or corky patches.',
+        cause: 'Mechanical injury or rubbing on stem.',
+        prevention: 'Careful handling, avoid sharp tools.',
+      },
+      {
+        name: 'Worm Bite / Insect Hole',
+        image: require('../assets/splash.png'),
+        crop: 'TOMATO',
+        looks: 'Visible holes or tunnels on the surface.',
+        cause: 'Insect feeding during growth.',
+        prevention: 'Use protective nets or organic pest control.',
+      },
+      {
+        name: 'Blemish / Scar',
+        image: require('../assets/splash.png'),
+        crop: 'TOMATO',
+        looks: 'Superficial tan/brown scars or corky patches.',
+        cause: 'Mechanical injury or rubbing on stem.',
+        prevention: 'Careful handling, avoid sharp tools.',
+      },
+      {
+        name: 'Worm Bite / Insect Hole',
+        image: require('../assets/splash.png'),
+        crop: 'TOMATO',
+        looks: 'Visible holes or tunnels on the surface.',
+        cause: 'Insect feeding during growth.',
+        prevention: 'Use protective nets or organic pest control.',
+      },
+      {
+        name: 'Blemish / Scar',
+        image: require('../assets/splash.png'),
+        crop: 'TOMATO',
+        looks: 'Superficial tan/brown scars or corky patches.',
+        cause: 'Mechanical injury or rubbing on stem.',
+        prevention: 'Careful handling, avoid sharp tools.',
+      },
+      {
+        name: 'Worm Bite / Insect Hole',
+        image: require('../assets/splash.png'),
+        crop: 'TOMATO',
+        looks: 'Visible holes or tunnels on the surface.',
+        cause: 'Insect feeding during growth.',
+        prevention: 'Use protective nets or organic pest control.',
+      },
+    ],
+  },
+];
+
+
 const OverviewScreen: React.FC = () => {
+  const [selectedDefect, setSelectedDefect] = useState<any>(null);
+  
   return (
     <SafeAreaView style={styles.safeArea}>
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 80 }} showsVerticalScrollIndicator={false}>
@@ -19,7 +131,7 @@ const OverviewScreen: React.FC = () => {
 
         <View style={styles.cardRow}>
           <View style={styles.card}>
-            <Ionicons name="search-outline" size={28} color={theme.colors.primary} />
+            <Ionicons name="search-outline" size={18} color={theme.colors.primary} />
             <Text style={styles.cardTitle}>Condition Assessment</Text>
             <Text style={styles.cardText}>
               Detecting visible damage including bruises, blemishes, cuts, and discoloration that affect market value.
@@ -27,7 +139,7 @@ const OverviewScreen: React.FC = () => {
           </View>
 
           <View style={styles.card}>
-            <Ionicons name="color-palette-outline" size={28} color={theme.colors.primary} />
+            <Ionicons name="color-palette-outline" size={18} color={theme.colors.primary} />
             <Text style={styles.cardTitle}>Color Classification</Text>
             <Text style={styles.cardText}>
               Classifying undamaged crops as green or red to meet buyer packaging and pricing requirements.
@@ -35,7 +147,7 @@ const OverviewScreen: React.FC = () => {
           </View>
 
           <View style={styles.card}>
-            <Ionicons name="resize-outline" size={28} color={theme.colors.primary} />
+            <Ionicons name="resize-outline" size={18} color={theme.colors.primary} />
             <Text style={styles.cardTitle}>Size Standardization</Text>
             <Text style={styles.cardText}>
               Categorizing undamaged crops into small, medium, or large for consistent presentation and market standards.
@@ -118,8 +230,81 @@ const OverviewScreen: React.FC = () => {
       </View>
     
       <Text style={styles.subtitle}>Common Defects</Text>
+      
+      {defectsData.map((group, i) => (
+        <View key={i} style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="reorder-three-outline" size={18} color="#2e5d34" />
+            <Text style={styles.cardTitle}>{group.title}</Text>
+          </View>
+
+          <View style={styles.grid}>
+            {group.items.map((item, j) => (
+              <TouchableOpacity
+                key={j}
+                style={styles.defectItem}
+                activeOpacity={0.7}
+                onPress={() => {
+                  console.log('Pressed:', item.name);
+                  setSelectedDefect(item);
+                }}>
+                <Image source={item.image} style={styles.defectImage} />
+                <Text style={styles.defectText}>{item.name}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      ))}
+
+      <View style={{ height: 80 }} />
+
     </ScrollView>
     <BottomNavBar/>
+
+    <Modal
+      transparent
+      visible={!!selectedDefect}
+      animationType="fade"
+      onRequestClose={() => setSelectedDefect(null)}>
+      <View style={styles.modalBackdrop}>
+        <View style={styles.modalBox}>
+          <TouchableOpacity
+            onPress={() => setSelectedDefect(null)}
+            style={styles.closeBtn}>
+            <Ionicons name="close-outline" size={24} color="#000" />
+          </TouchableOpacity>
+
+          {selectedDefect && (
+            <>
+              <Image source={selectedDefect.image} style={styles.modalImage} />
+              <Text style={styles.modalTitle}>{selectedDefect.name}</Text>
+              <Text style={styles.modalCrop}>{selectedDefect.crop}</Text>
+
+              <View style={[styles.infoBox, { backgroundColor: '#cfe2ff' }]}>
+                <Text style={styles.infoText}>
+                  <Ionicons name="eye-outline" color="#2b6cb0" size={16} /> Looks like:{' '}
+                  {selectedDefect.looks}
+                </Text>
+              </View>
+
+              <View style={[styles.infoBox, { backgroundColor: '#f8d7da' }]}>
+                <Text style={styles.infoText}>
+                  <Ionicons name="warning-outline" color="#c53030" size={16} /> Cause:{' '}
+                  {selectedDefect.cause}
+                </Text>
+              </View>
+
+              <View style={[styles.infoBox, { backgroundColor: '#d1e7dd' }]}>
+                <Text style={styles.infoText}>
+                  <Ionicons name="leaf-outline" color="#2f855a" size={16} /> Prevention:{' '}
+                  {selectedDefect.prevention}
+                </Text>
+              </View>
+            </>
+          )}
+        </View>
+      </View>
+    </Modal>
     </SafeAreaView>
   );
 };
@@ -167,6 +352,7 @@ const styles = StyleSheet.create({
   cardRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    margin: -8,
     justifyContent: 'space-between',
   },
   card: {
@@ -178,15 +364,26 @@ const styles = StyleSheet.create({
     margin: 4,
     elevation: 2,
   },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 4,
+  },
   cardTitle: {
-    fontWeight: '600',
-    fontSize: 14,
-    marginTop: 6,
+    fontWeight: 'bold',
+    fontSize: 10,
   },
   cardText: {
-    fontSize: 12,
+    fontSize: 9,
+    fontWeight: '400',
     color: '#555',
     marginTop: 4,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   benefitsRow: {
     flexDirection: 'row',
@@ -250,5 +447,74 @@ const styles = StyleSheet.create({
     padding: 10,
     fontSize: 12,
     color: '#444',
+  },
+  defectItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#cde3ca',
+    borderRadius: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    width: '48%',
+    marginBottom: 8,
+  },
+  defectImage: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  defectText: {
+    fontSize: 12,
+    color: '#1e3c1f',
+    flexShrink: 1,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalBox: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 16,
+    width: '80%',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#2e5d34',
+  },
+  closeBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 1,
+  },
+  modalImage: {
+    width: 140,
+    height: 140,
+    borderRadius: 6,
+    marginBottom: 10,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 2,
+    textAlign: 'center',
+  },
+  modalCrop: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 8,
+  },
+  infoBox: {
+    width: '100%',
+    borderRadius: 6,
+    padding: 8,
+    marginBottom: 6,
+  },
+  infoText: {
+    fontSize: 13,
+    color: '#222',
   },
 });
