@@ -33,12 +33,12 @@ const AppNavigator: React.FC = () => {
           animation: 'fade',
         }}
         >
-            <Stack.Screen name="Scan" component={ScanScreen} />
+            {/* <Stack.Screen name="Scan" component={ScanScreen} />
             <Stack.Screen name="DashboardScreen" component={DashboardScreen} />
             <Stack.Screen name="Settings" component={SettingsScreen} />
             <Stack.Screen name="SortingHistoryScreen" component={SortingHistoryScreen} />
-            <Stack.Screen name="OverviewScreen" component={OverviewScreen} />
-        {/* {user ? (
+            <Stack.Screen name="OverviewScreen" component={OverviewScreen} /> */}
+        {user ? (
           <>
             <Stack.Screen name="Scan" component={ScanScreen} />
             <Stack.Screen name="DashboardScreen" component={DashboardScreen} />
@@ -48,7 +48,7 @@ const AppNavigator: React.FC = () => {
           </>
         ) : (
           <Stack.Screen name="Auth" component={AuthStack}  options={{ headerShown: false }}/>
-        )} */}
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );

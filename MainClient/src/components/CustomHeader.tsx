@@ -1,10 +1,29 @@
 import React, { useState } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, Modal, Pressable } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Modal, Pressable, Alert } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { theme } from '../styles/theme';
+import { useAuth } from '../providers/AuthProvider';
 
 const CustomHeader: React.FC = () => {
   const [dropdownVisible, setDropdownVisible] = useState(false);
+  const { user, signOut } = useAuth();
+
+  const handleSignOutPress = () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Sign Out', 
+          style: 'destructive',
+          onPress: () => {
+            signOut();
+          }
+        }
+      ]
+    );
+  };
 
   return (
     <View style={styles.header}>
@@ -60,7 +79,7 @@ const CustomHeader: React.FC = () => {
               <Ionicons name="settings-outline" size={18} color="#222" />
               <Text style={styles.dropdownText}>Settings</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.dropdownItem}>
+            <TouchableOpacity style={styles.dropdownItem} onPress={handleSignOutPress}>
               <Ionicons name="log-out-outline" size={18} color="#222" />
               <Text style={styles.dropdownText}>Logout</Text>
             </TouchableOpacity>

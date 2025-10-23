@@ -10,7 +10,6 @@ const AuthScreen: React.FC = () => {
   const signIn = async () => {
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
-      // onAuthStateChanged listener will handle redirect
     } catch (err: any) {
       Alert.alert('Sign in error', err.message || 'Unknown error');
     }
