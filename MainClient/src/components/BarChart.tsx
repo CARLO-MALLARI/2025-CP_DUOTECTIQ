@@ -5,14 +5,12 @@ import { Picker } from "@react-native-picker/picker";
 
 const screenWidth = Dimensions.get("window").width;
 
-// Define colors for each status
 const STATUS_COLORS = {
   red: "#C62828",
   green: "#2E7D32",
   damaged: "#FBC02D",
 };
 
-// ---- TYPE DEFINITIONS ----
 type CropType = "Tomato" | "Bell Pepper";
 type SizeType = "Small" | "Medium" | "Large";
 type DataMap = Record<CropType, Record<SizeType, number[]>>;
@@ -189,8 +187,8 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   picker: {
-    height: 40,
-    width: 150,
+    height: 20,
+    width: 100,
     backgroundColor: "#f5f5f5",
     borderRadius: 8,
   },
