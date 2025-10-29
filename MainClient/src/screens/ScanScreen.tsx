@@ -11,42 +11,24 @@ import BottomNavBar from '../components/BottomNavbar';
 
 const ScanScreen: React.FC = () => {
   const { permission, isLoading: permissionLoading } = useCameraPermission();
-  const { detections, connected, socketRef } = useDetectionSocket();
+  const { detections, connected, socketRef, counters } = useDetectionSocket();
   const { isStreaming, toggleStreaming, cameraRef, device } = useCameraStream(socketRef);
 
-
-  const counterData: CounterData = React.useMemo(() => {
-    const data: CounterData = {
-      Tomato: { total: { green: 0, damaged: 0, red: 0 }, small: { green: 0, red: 0 }, medium: { green: 0, red: 0 }, large: { green: 0, red: 0 } },
-      Bellpepper: { total: { green: 0, damaged: 0, red: 0 }, small: { green: 0, red: 0 }, medium: { green: 0, red: 0 }, large: { green: 0, red: 0 } }
-    };
-
-    detections.forEach(det => {
-      const type = det.class?.includes('Tomato') ? 'Tomato' : 
-                   det.class?.includes('Bellpepper') ? 'Bellpepper' : null;
-      if (!type) return;
-
-      const isDamaged = det.class?.toLowerCase().includes('damaged');
-      const isRed = det.class?.toLowerCase().includes('red');
-      const size = det.class?.toLowerCase().includes('small') ? 'small' :
-                   det.class?.toLowerCase().includes('medium') ? 'medium' :
-                   det.class?.toLowerCase().includes('large') ? 'large' : null;
-
-      if (isDamaged) {
-        data[type].total.damaged++;
-      } else if (size) {
-        if (isRed) {
-          data[type][size].red++;
-          data[type].total.red++;
-        } else {
-          data[type][size].green++;
-          data[type].total.green++;
-        }
-      }
-    });
-
-    return data;
-  }, [detections]);
+  // fallback in case counters are not yet available
+  const counterData: CounterData = counters ?? {
+    Tomato: {
+      total: { green: 0, damaged: 0, red: 0 },
+      small: { green: 0, damaged: 0, red: 0 },
+      medium: { green: 0, damaged: 0, red: 0 },
+      large: { green: 0, damaged: 0, red: 0 },
+    },
+    Bellpepper: {
+      total: { green: 0, damaged: 0, red: 0 },
+      small: { green: 0, damaged: 0, red: 0 },
+      medium: { green: 0, damaged: 0, red: 0 },
+      large: { green: 0, damaged: 0, red: 0 },
+    },
+  };
 
   if (permissionLoading) {
     return (
@@ -75,6 +57,7 @@ const ScanScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+
       <CameraView
         cameraRef={cameraRef}
         device={device}
@@ -86,7 +69,6 @@ const ScanScreen: React.FC = () => {
       <DetectionLegend />
 
       <Text style={styles.title}>Classification Counter</Text>
-
       <ClassificationCounter data={counterData} />
 
       <BottomNavBar />

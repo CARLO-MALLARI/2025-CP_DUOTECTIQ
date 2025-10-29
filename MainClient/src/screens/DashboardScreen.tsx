@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 22, fontWeight: '700', marginBottom: 16, marginTop: 10 },
   cardContainer: { flexDirection: 'row', justifyContent: 'space-evenly', flexWrap: 'wrap', marginBottom: 24 },
   card: {
-    width: '30%',
+    width: '40%',
     backgroundColor: '#fff',
     borderRadius: 6,
     padding: 10,

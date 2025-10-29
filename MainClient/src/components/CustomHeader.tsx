@@ -3,10 +3,23 @@ import { View, Text, Image, StyleSheet, TouchableOpacity, Modal, Pressable, Aler
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { theme } from '../styles/theme';
 import { useAuth } from '../providers/AuthProvider';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/AppNavigator';
+
+type ScanScreenNavigationProp = NativeStackNavigationProp<
+  RootStackParamList,
+  'Scan'
+>;
 
 const CustomHeader: React.FC = () => {
+  const navigation = useNavigation<ScanScreenNavigationProp>();
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const { user, signOut } = useAuth();
+
+  const goToSettings = () => {
+    navigation.navigate('Settings');
+  };
 
   const handleSignOutPress = () => {
     Alert.alert(
@@ -75,7 +88,7 @@ const CustomHeader: React.FC = () => {
               <Ionicons name="person-outline" size={18} color="#222" />
               <Text style={styles.dropdownText}>Profile</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.dropdownItem}>
+            <TouchableOpacity style={styles.dropdownItem}  onPress={goToSettings} >
               <Ionicons name="settings-outline" size={18} color="#222" />
               <Text style={styles.dropdownText}>Settings</Text>
             </TouchableOpacity>

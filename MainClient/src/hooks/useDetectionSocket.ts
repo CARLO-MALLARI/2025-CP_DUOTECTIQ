@@ -1,14 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useContext } from 'react';
 import io, { Socket } from 'socket.io-client';
-import { Detection, DetectionData } from '../types/detection.types';
-
-const SERVER_URL = 'http://192.168.100.2:5000';
+import { Detection, DetectionData, CounterData } from '../types/detection.types';
+import { SettingsContext } from '../context/SettingsContext';
 
 export const useDetectionSocket = () => {
   const [detections, setDetections] = useState<Detection[]>([]);
   const [connected, setConnected] = useState(false);
+  const [counters, setCounters] = useState<CounterData | null>(null);
   const socketRef = useRef<Socket | null>(null);
-
+  const { serverUrl } = useContext(SettingsContext);
+    
   useEffect(() => {
     initializeSocket();
 
@@ -18,7 +19,7 @@ export const useDetectionSocket = () => {
   }, []);
 
   const initializeSocket = () => {
-    socketRef.current = io(SERVER_URL, {
+    socketRef.current = io(serverUrl, {
       transports: ['websocket'],
       reconnectionAttempts: 5,
       reconnectionDelay: 2000,
@@ -36,6 +37,7 @@ export const useDetectionSocket = () => {
 
     socketRef.current.on('detections', (data: DetectionData) => {
       setDetections(data.detections || []);
+      if (data.counters) setCounters(data.counters);
     });
 
     socketRef.current.on('connect_error', (error) => {
@@ -43,5 +45,5 @@ export const useDetectionSocket = () => {
     });
   };
 
-  return { detections, connected, socketRef };
+  return { detections, connected, counters, socketRef };
 };
