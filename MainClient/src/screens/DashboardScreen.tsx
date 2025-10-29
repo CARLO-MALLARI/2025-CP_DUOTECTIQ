@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import BottomNavBar from '../components/BottomNavbar';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import BarChartComponent from '../components/BarChart';
 
 const DashboardScreen: React.FC = () => {
   const [expanded, setExpanded] = useState({
@@ -36,11 +37,6 @@ const DashboardScreen: React.FC = () => {
               <Ionicons name="trending-up-outline" size={32} color="#555" />
               <Text style={[styles.cardValue, { color: 'green' }]}>78</Text>
               <Text style={styles.cardTitle}>Total crops sorted (Latest)</Text>
-            </View>
-
-            <View style={styles.card}>
-              <Ionicons style={styles.cardIcon} name="grid-outline" size={32} color="#555" />
-              <Text style={styles.cardTitle}>Crop Qualities Overview</Text>
             </View>
           </View>
 
@@ -141,9 +137,10 @@ const DashboardScreen: React.FC = () => {
               <Text style={[styles.cell, { fontWeight: "bold" }]}>78</Text>
             </View>
           </View>
-          
+          <BarChartComponent />
           {/* Add padding at bottom so content doesn't hide behind navbar */}
           <View style={{ height: 80 }} />
+          
         </ScrollView>
         
         {/* Bottom Navigation Bar - Outside ScrollView */}
@@ -167,7 +164,7 @@ const styles = StyleSheet.create({
     flexGrow: 1 
   },
   sectionTitle: { fontSize: 22, fontWeight: '700', marginBottom: 16, marginTop: 10 },
-  cardContainer: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', marginBottom: 24 },
+  cardContainer: { flexDirection: 'row', justifyContent: 'space-evenly', flexWrap: 'wrap', marginBottom: 24 },
   card: {
     width: '30%',
     backgroundColor: '#fff',

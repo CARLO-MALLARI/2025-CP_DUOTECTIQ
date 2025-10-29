@@ -98,7 +98,6 @@ const SortingHistoryScreen: React.FC = () => {
             <Text style={[styles.cell, styles.headerCell]}>Color</Text>
             <Text style={[styles.cell, styles.headerCell]}>Condition</Text>
             <Text style={[styles.cell, styles.headerCell]}>Size</Text>
-            <Text style={[styles.cell, styles.headerCell]}>Sorted To</Text>
             <Text style={[styles.cell, styles.headerCell]}>Time</Text>
           </View>
 
@@ -111,7 +110,6 @@ const SortingHistoryScreen: React.FC = () => {
                 <Text style={styles.cell}>{item.color}</Text>
                 <Text style={styles.cell}>{item.condition}</Text>
                 <Text style={styles.cell}>{item.size}</Text>
-                <Text style={styles.cell}>{item.basket}</Text>
                 <Text style={styles.cell}>{item.time}</Text>
               </View>
             )}
@@ -196,12 +194,14 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#ddd',
+    padding: 5,
   },
   tableRow: {
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderColor: '#eee',
     paddingVertical: 8,
+    padding: 5,
   },
   cell: {
     flex: 1,

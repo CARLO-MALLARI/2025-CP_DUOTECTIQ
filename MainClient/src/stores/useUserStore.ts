@@ -51,3 +51,5 @@ export const useUserStore = create<UserState>()(
     }
   )
 );
+
+export let frameId = 0;

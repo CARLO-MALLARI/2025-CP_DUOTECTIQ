@@ -9,6 +9,8 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 model = YOLO("best.pt")
 print("✅ Model loaded successfully with classes:", model.names)
 
+CONF_THRESHOLD = 0.8
+
 @app.route('/')
 def index():
     return "✅ Flask YOLO WebSocket Server is running!"
@@ -39,9 +41,13 @@ def handle_frame(data):
 
         detections = []
         for box in boxes:
-            cls_id = int(box.cls.cpu().numpy()[0])
             conf = float(box.conf.cpu().numpy()[0])
+            if conf < CONF_THRESHOLD:
+                continue
+
+            cls_id = int(box.cls.cpu().numpy()[0])
             xyxy = box.xyxy.cpu().numpy()[0].tolist()
+
             detections.append({
                 "class": model.names[cls_id],
                 "confidence": round(conf, 3),

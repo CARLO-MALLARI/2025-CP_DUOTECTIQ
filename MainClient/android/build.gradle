@@ -5,28 +5,41 @@ buildscript {
         compileSdkVersion = 35
         targetSdkVersion = 34
         ndkVersion = "26.1.10909125"
-        kotlinVersion = "2.0.21"
+        kotlinVersion = "1.9.25" // React Native 0.76 prefers 1.9.x
     }
+
     repositories {
         google()
         mavenCentral()
     }
-    allprojects {
-        configurations.all {
-            resolutionStrategy.eachDependency { details ->
-                if (details.requested.group == "org.jetbrains.kotlin") {
-                    details.useVersion("1.9.25")
-                }
-            }
-        }
-    }
+
     dependencies {
-        classpath("com.android.tools.build:gradle")
+        classpath("com.android.tools.build:gradle:8.5.2")
         classpath("com.facebook.react:react-native-gradle-plugin")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin")
-        classpath("com.google.gms:google-services:4.4.0")
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
+        classpath("com.google.gms:google-services:4.4.2")
     }
 }
 
 apply plugin: "com.facebook.react.rootproject"
 apply plugin: "com.google.gms.google-services"
+
+allprojects {
+    repositories {
+        google()
+        mavenCentral()
+        // ✅ React Native local Android sources
+        maven { url("$rootDir/../node_modules/react-native/android") }
+        // ✅ Jitpack for some libraries (like vector-icons)
+        maven { url "https://www.jitpack.io" }
+    }
+
+    // ✅ Ensures all Kotlin deps align
+    configurations.all {
+        resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == "org.jetbrains.kotlin") {
+                details.useVersion("1.9.25")
+            }
+        }
+    }
+}
