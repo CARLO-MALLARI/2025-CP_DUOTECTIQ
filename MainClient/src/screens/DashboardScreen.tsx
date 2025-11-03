@@ -1,23 +1,97 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView } from 'react-native';
+// src/screens/DashboardScreen.tsx
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  ScrollView,
+  ActivityIndicator,
+  Alert,
+} from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import BottomNavBar from '../components/BottomNavbar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BarChartComponent from '../components/BarChart';
+import DateTimePickerModal from 'react-native-modal-datetime-picker';
+import { Picker } from '@react-native-picker/picker';
+import { fetchDashboardData, DashboardData } from '../helpers/firebaseDashboardHelper';
+
+type SortOption = 'All' | 'Tomato' | 'Bell Pepper';
 
 const DashboardScreen: React.FC = () => {
+  // ---- UI state ----------------------------------------------------
+  const [fromDate, setFromDate] = useState('');               // "mm/dd/yyyy"
+  const [toDate, setToDate] = useState('');
+  const [isFromPickerVisible, setFromPickerVisible] = useState(false);
+  const [isToPickerVisible, setToPickerVisible] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>('All');
+
   const [expanded, setExpanded] = useState({
     green: false,
     red: false,
   });
 
+  // ---- Data state --------------------------------------------------
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState<DashboardData | null>(null);
+
+  // ---- Convert UI dates to ISO strings -----------------------------
+  const iso = (uiDate: string): string => {
+    if (!uiDate) return '';
+    const [m, d, y] = uiDate.split('/');
+    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+  };
+
+  // ---- Fetch data --------------------------------------------------
+  const loadData = useCallback(async () => {
+    if (!fromDate) {
+      Alert.alert('Select a “From” date');
+      return;
+    }
+    setLoading(true);
+    try {
+      const fromISO = iso(fromDate);
+      const toISO = toDate ? iso(toDate) : fromISO; // default to same day
+      const agg = await fetchDashboardData(fromISO, toISO, sortBy);
+      setData(agg);
+    } catch (e: any) {
+      Alert.alert('Error', e.message ?? 'Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  }, [fromDate, toDate, sortBy]);
+
+  // Auto-load when filters change
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // ---- UI helpers --------------------------------------------------
   const toggleExpand = (key: keyof typeof expanded) => {
     setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const [fromDate, setFromDate] = useState('07/09/2025');
-  const [toDate, setToDate] = useState('');
-  const [sortBy, setSortBy] = useState('All');
+  const handleConfirmFrom = (picked: Date) => {
+    setFromDate(picked.toLocaleDateString('en-US'));
+    setFromPickerVisible(false);
+  };
+  const handleConfirmTo = (picked: Date) => {
+    setToDate(picked.toLocaleDateString('en-US'));
+    setToPickerVisible(false);
+  };
+
+  // ---- Render helpers -----------------------------------------------
+  const d = data ?? {
+    totalPieces: 0,
+    byCrop: { Tomato: 0, 'Bell Pepper': 0 },
+    byCategory: {
+      green: { total: 0, small: 0, medium: 0 },
+      red: { total: 0, small: 0, medium: 0 },
+      damaged: { total: 0 },
+    },
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -35,7 +109,9 @@ const DashboardScreen: React.FC = () => {
 
             <View style={styles.card}>
               <Ionicons name="trending-up-outline" size={32} color="#555" />
-              <Text style={[styles.cardValue, { color: 'green' }]}>78</Text>
+              <Text style={[styles.cardValue, { color: 'green' }]}>
+                {d.totalPieces}
+              </Text>
               <Text style={styles.cardTitle}>Total crops sorted (Latest)</Text>
             </View>
           </View>
@@ -46,123 +122,225 @@ const DashboardScreen: React.FC = () => {
           {/* Filters Row */}
           <View style={styles.filterRow}>
             <Text style={styles.filterLabel}>From:</Text>
-            <TextInput style={styles.dateInput} placeholder="mm/dd" value={fromDate} onChangeText={setFromDate} />
+            <TouchableOpacity style={styles.datePicker} onPress={() => setFromPickerVisible(true)}>
+              <TextInput
+                style={styles.dateText}
+                placeholder="mm/dd/yyyy"
+                value={fromDate}
+                editable={false}
+                placeholderTextColor="#777"
+              />
+              <Ionicons name="calendar-outline" size={14} color="#555" />
+            </TouchableOpacity>
+
             <Text style={styles.filterLabel}>To:</Text>
-            <TextInput style={styles.dateInput} placeholder="mm/dd" value={toDate} onChangeText={setToDate} />
+            <TouchableOpacity style={styles.datePicker} onPress={() => setToPickerVisible(true)}>
+              <TextInput
+                style={styles.dateText}
+                placeholder="mm/dd/yyyy"
+                value={toDate}
+                editable={false}
+                placeholderTextColor="#777"
+              />
+              <Ionicons name="calendar-outline" size={14} color="#555" />
+            </TouchableOpacity>
+
             <Text style={styles.filterLabel}>Sort:</Text>
-            <TextInput style={[styles.dateInput, { width: 55 }]} placeholder="All" value={sortBy} onChangeText={setSortBy} />
-            <TouchableOpacity style={styles.filterBtn}>
-              <Ionicons name="filter-outline" size={12} color="#fff" />
+            <View style={styles.sortPicker}>
+              <Picker
+                selectedValue={sortBy}
+                onValueChange={(v: any) => setSortBy(v as SortOption)}
+                mode="dropdown"
+                dropdownIconColor="transparent"
+                style={{ fontSize: 11 }}
+              >
+                <Picker.Item label="All" value="All" />
+                <Picker.Item label="Tomato" value="Tomato" />
+                <Picker.Item label="Bell Pepper" value="Bell Pepper" />
+              </Picker>
+            </View>
+
+            <TouchableOpacity style={styles.filterBtn} onPress={loadData}>
+              {loading ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name="filter-outline" size={12} color="#fff" />
+              )}
             </TouchableOpacity>
           </View>
-
 
           {/* Summary Table */}
-          <View style={styles.table}>
-            {/* Header */}
-            <View style={styles.tableHeader}>
-              <Text style={[styles.cell, styles.headerCell, { flex: 2 }]}>Category</Text>
-              <Text style={[styles.cell, styles.headerCell]}>Tomato</Text>
-              <Text style={[styles.cell, styles.headerCell]}>Bell Pepper</Text>
-              <Text style={[styles.cell, styles.headerCell]}>Total</Text>
+          {loading ? (
+            <ActivityIndicator style={{ marginTop: 20 }} />
+          ) : (
+            <View style={styles.table}>
+              {/* Header */}
+              <View style={styles.tableHeader}>
+                <Text style={[styles.cell, styles.headerCell, { flex: 2 }]}>Category</Text>
+                <Text style={[styles.cell, styles.headerCell]}>Tomato</Text>
+                <Text style={[styles.cell, styles.headerCell]}>Bell Pepper</Text>
+                <Text style={[styles.cell, styles.headerCell]}>Total</Text>
+              </View>
+
+              {/* Not Damaged - Green */}
+              <TouchableOpacity style={styles.tableRow} onPress={() => toggleExpand('green')}>
+                <Text style={[styles.cell, { flex: 2 }]}>
+                  {expanded.green ? "▾" : "▸"} Not Damaged - Green
+                </Text>
+                <Text style={styles.cell}>
+                  {sortBy === 'All' || sortBy === 'Tomato'
+                    ? d.byCategory.green.total
+                    : 0}
+                </Text>
+                <Text style={styles.cell}>
+                  {sortBy === 'All' || sortBy === 'Bell Pepper'
+                    ? d.byCategory.green.total
+                    : 0}
+                </Text>
+                <Text style={styles.cell}>{d.byCategory.green.total}</Text>
+              </TouchableOpacity>
+
+              {expanded.green && (
+                <>
+                  <View style={styles.subRow}>
+                    <Text style={[styles.subCell, { flex: 2 }]}>Small</Text>
+                    <Text style={styles.subCell}>
+                      {sortBy === 'All' || sortBy === 'Tomato'
+                        ? d.byCategory.green.small
+                        : 0}
+                    </Text>
+                    <Text style={styles.subCell}>
+                      {sortBy === 'All' || sortBy === 'Bell Pepper'
+                        ? d.byCategory.green.small
+                        : 0}
+                    </Text>
+                    <Text style={styles.subCell}></Text>
+                  </View>
+                  <View style={styles.subRow}>
+                    <Text style={[styles.subCell, { flex: 2 }]}>Medium</Text>
+                    <Text style={styles.subCell}>
+                      {sortBy === 'All' || sortBy === 'Tomato'
+                        ? d.byCategory.green.medium
+                        : 0}
+                    </Text>
+                    <Text style={styles.subCell}>
+                      {sortBy === 'All' || sortBy === 'Bell Pepper'
+                        ? d.byCategory.green.medium
+                        : 0}
+                    </Text>
+                    <Text style={styles.subCell}></Text>
+                  </View>
+                </>
+              )}
+
+              {/* Not Damaged - Red */}
+              <TouchableOpacity style={styles.tableRow} onPress={() => toggleExpand('red')}>
+                <Text style={[styles.cell, { flex: 2 }]}>
+                  {expanded.red ? "▾" : "▸"} Not Damaged - Red
+                </Text>
+                <Text style={styles.cell}>
+                  {sortBy === 'All' || sortBy === 'Tomato'
+                    ? d.byCategory.red.total
+                    : 0}
+                </Text>
+                <Text style={styles.cell}>
+                  {sortBy === 'All' || sortBy === 'Bell Pepper'
+                    ? d.byCategory.red.total
+                    : 0}
+                </Text>
+                <Text style={styles.cell}>{d.byCategory.red.total}</Text>
+              </TouchableOpacity>
+
+              {expanded.red && (
+                <>
+                  <View style={styles.subRow}>
+                    <Text style={[styles.subCell, { flex: 2 }]}>Small</Text>
+                    <Text style={styles.subCell}>
+                      {sortBy === 'All' || sortBy === 'Tomato'
+                        ? d.byCategory.red.small
+                        : 0}
+                    </Text>
+                    <Text style={styles.subCell}>
+                      {sortBy === 'All' || sortBy === 'Bell Pepper'
+                        ? d.byCategory.red.small
+                        : 0}
+                    </Text>
+                    <Text style={styles.subCell}></Text>
+                  </View>
+                  <View style={styles.subRow}>
+                    <Text style={[styles.subCell, { flex: 2 }]}>Medium</Text>
+                    <Text style={styles.subCell}>
+                      {sortBy === 'All' || sortBy === 'Tomato'
+                        ? d.byCategory.red.medium
+                        : 0}
+                    </Text>
+                    <Text style={styles.subCell}>
+                      {sortBy === 'All' || sortBy === 'Bell Pepper'
+                        ? d.byCategory.red.medium
+                        : 0}
+                    </Text>
+                    <Text style={styles.subCell}></Text>
+                  </View>
+                </>
+              )}
+
+              {/* Damaged */}
+              <View style={styles.tableRow}>
+                <Text style={[styles.cell, { flex: 2 }]}>Damaged</Text>
+                <Text style={styles.cell}>
+                  {sortBy === 'All' || sortBy === 'Tomato'
+                    ? d.byCategory.damaged.total
+                    : 0}
+                </Text>
+                <Text style={styles.cell}>
+                  {sortBy === 'All' || sortBy === 'Bell Pepper'
+                    ? d.byCategory.damaged.total
+                    : 0}
+                </Text>
+                <Text style={styles.cell}>{d.byCategory.damaged.total}</Text>
+              </View>
+
+              {/* Footer */}
+              <View style={[styles.tableRow, { borderTopWidth: 1, borderColor: '#ccc' }]}>
+                <Text style={[styles.cell, { flex: 2, fontWeight: 'bold' }]}>Total Pieces</Text>
+                <Text style={[styles.cell, { fontWeight: 'bold' }]}>{d.byCrop.Tomato}</Text>
+                <Text style={[styles.cell, { fontWeight: 'bold' }]}>{d.byCrop['Bell Pepper']}</Text>
+                <Text style={[styles.cell, { fontWeight: 'bold' }]}>{d.totalPieces}</Text>
+              </View>
             </View>
+          )}
 
-            {/* ▸ Not Damaged - Green */}
-            <TouchableOpacity style={styles.tableRow} onPress={() => toggleExpand("green")}>
-              <Text style={[styles.cell, { flex: 2 }]}>
-                {expanded.green ? "▾" : "▸"} Not Damaged - Green
-              </Text>
-              <Text style={styles.cell}>15</Text>
-              <Text style={styles.cell}>12</Text>
-              <Text style={styles.cell}>27</Text>
-            </TouchableOpacity>
+          <BarChartComponent data={d} />
 
-            {expanded.green && (
-              <>
-                <View style={styles.subRow}>
-                  <Text style={[styles.subCell, { flex: 2 }]}>Small</Text>
-                  <Text style={styles.subCell}>5</Text>
-                  <Text style={styles.subCell}>5</Text>
-                  <Text style={styles.subCell}></Text>
-                </View>
-                <View style={styles.subRow}>
-                  <Text style={[styles.subCell, { flex: 2 }]}>Medium</Text>
-                  <Text style={styles.subCell}>10</Text>
-                  <Text style={styles.subCell}>7</Text>
-                  <Text style={styles.subCell}></Text>
-                </View>
-              </>
-            )}
-
-            {/* ▸ Not Damaged - Red */}
-            <TouchableOpacity style={styles.tableRow} onPress={() => toggleExpand("red")}>
-              <Text style={[styles.cell, { flex: 2 }]}>
-                {expanded.red ? "▾" : "▸"} Not Damaged - Red
-              </Text>
-              <Text style={styles.cell}>20</Text>
-              <Text style={styles.cell}>14</Text>
-              <Text style={styles.cell}>34</Text>
-            </TouchableOpacity>
-
-            {expanded.red && (
-              <>
-                <View style={styles.subRow}>
-                  <Text style={[styles.subCell, { flex: 2 }]}>Small</Text>
-                  <Text style={styles.subCell}>6</Text>
-                  <Text style={styles.subCell}>5</Text>
-                  <Text style={styles.subCell}></Text>
-                </View>
-                <View style={styles.subRow}>
-                  <Text style={[styles.subCell, { flex: 2 }]}>Medium</Text>
-                  <Text style={styles.subCell}>14</Text>
-                  <Text style={styles.subCell}>9</Text>
-                  <Text style={styles.subCell}></Text>
-                </View>
-              </>
-            )}
-
-            {/* ▸ Damaged */}
-            <View style={styles.tableRow}>
-              <Text style={[styles.cell, { flex: 2 }]}>▸ Damaged</Text>
-              <Text style={styles.cell}>9</Text>
-              <Text style={styles.cell}>8</Text>
-              <Text style={styles.cell}>17</Text>
-            </View>
-
-            {/* Footer */}
-            <View style={[styles.tableRow, { borderTopWidth: 1, borderColor: "#ccc" }]}>
-              <Text style={[styles.cell, { flex: 2, fontWeight: "bold" }]}>Total Pieces</Text>
-              <Text style={[styles.cell, { fontWeight: "bold" }]}>44</Text>
-              <Text style={[styles.cell, { fontWeight: "bold" }]}>34</Text>
-              <Text style={[styles.cell, { fontWeight: "bold" }]}>78</Text>
-            </View>
-          </View>
-          <BarChartComponent />
-          {/* Add padding at bottom so content doesn't hide behind navbar */}
+          {/* bottom padding */}
           <View style={{ height: 80 }} />
-          
         </ScrollView>
-        
-        {/* Bottom Navigation Bar - Outside ScrollView */}
+
         <BottomNavBar />
+
+        {/* Date pickers */}
+        <DateTimePickerModal
+          isVisible={isFromPickerVisible}
+          mode="date"
+          onConfirm={handleConfirmFrom}
+          onCancel={() => setFromPickerVisible(false)}
+        />
+        <DateTimePickerModal
+          isVisible={isToPickerVisible}
+          mode="date"
+          onConfirm={handleConfirmTo}
+          onCancel={() => setToPickerVisible(false)}
+        />
       </View>
     </SafeAreaView>
   );
 };
 
+/* ---------- Styles (unchanged) ---------- */
 const styles = StyleSheet.create({
-  safeArea: { 
-    flex: 1, 
-    backgroundColor: '#f4f4f4' 
-  },
-  wrapper: { 
-    flex: 1 
-  },
-  container: { 
-    padding: 10, 
-    backgroundColor: '#f4f4f4', 
-    flexGrow: 1 
-  },
+  safeArea: { flex: 1, backgroundColor: '#f4f4f4' },
+  wrapper: { flex: 1 },
+  container: { padding: 10, backgroundColor: '#f4f4f4', flexGrow: 1 },
   sectionTitle: { fontSize: 22, fontWeight: '700', marginBottom: 16, marginTop: 10 },
   cardContainer: { flexDirection: 'row', justifyContent: 'space-evenly', flexWrap: 'wrap', marginBottom: 24 },
   card: {
@@ -176,11 +354,32 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 3,
   },
-  
-  cardIcon:  { textAlign: 'center', marginTop: 15 },
-  cardTitle: { fontSize: 12, color: '#333', alignSelf:'center', marginTop: 5 },
-  cardValue: { fontSize: 20, fontWeight: '600',  marginTop: 1 },
+  cardIcon: { textAlign: 'center', marginTop: 15 },
+  cardTitle: { fontSize: 12, color: '#333', alignSelf: 'center', marginTop: 5 },
+  cardValue: { fontSize: 20, fontWeight: '600', marginTop: 1 },
 
+  datePicker: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#bbb',
+    backgroundColor: '#fff',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    height: 40,
+    flex: 0.64,
+  },
+  sortPicker: {
+    flex: 0.33,
+    borderWidth: 1,
+    borderColor: '#bbb',
+    borderRadius: 6,
+    backgroundColor: '#fff',
+    height: 40,
+    overflow: 'hidden',
+    justifyContent: 'center',
+  },
+  dateText: { flex: 1, color: '#333', fontSize: 9 },
   filterRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -189,23 +388,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     gap: 4,
   },
-
-  filterLabel: {
-    fontSize: 11,
-    color: '#333',
-  },
-
-  dateInput: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 4,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    backgroundColor: '#fff',
-    width: 75,
-    fontSize: 11,
-  },
-
+  filterLabel: { fontSize: 11, color: '#333' },
   filterBtn: {
     backgroundColor: '#007a33',
     borderRadius: 4,

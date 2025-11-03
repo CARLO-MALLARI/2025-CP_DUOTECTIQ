@@ -7,6 +7,7 @@ import SettingsScreen from '../screens/SettingsScreen';
 import ScanScreen from '../screens/ScanScreen';
 import SortingHistoryScreen from '../screens/SortingHistoryScreen';
 import OverviewScreen from '../screens/OverviewScreen';
+import ProfileScreen from '../screens/ProfileScreen';
 import AuthStack from './AuthStack';
 import { theme } from '../styles/theme';
 import CustomHeader from '../components/CustomHeader';
@@ -18,6 +19,7 @@ export type RootStackParamList = {
   Scan: undefined;
   SortingHistoryScreen: undefined;
   OverviewScreen: undefined;
+  Profile: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -45,6 +47,7 @@ const AppNavigator: React.FC = () => {
             <Stack.Screen name="Settings" component={SettingsScreen} />
             <Stack.Screen name="SortingHistoryScreen" component={SortingHistoryScreen} />
             <Stack.Screen name="OverviewScreen" component={OverviewScreen} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
           </>
         ) : (
           <Stack.Screen name="Auth" component={AuthStack}  options={{ headerShown: false }}/>

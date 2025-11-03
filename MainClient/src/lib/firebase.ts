@@ -3,13 +3,13 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyDYHZKXOHR4Cki5U17IErTEWFE5obAB-jk",
-  authDomain: "ml-crop-45553.firebaseapp.com",
-  projectId: "ml-crop-45553",
-  storageBucket: "ml-crop-45553.firebasestorage.app",
-  messagingSenderId: "968013919047",
-  appId: "1:968013919047:web:248dacf9e40ccbde001262",
-  measurementId: "G-8QT1L11BJS"
+  apiKey: "AIzaSyAR3Fqq3rZcPvdYIsncdaqKI-Gv3yfYLWM",
+  authDomain: "duotectiq.firebaseapp.com",
+  projectId: "duotectiq",
+  storageBucket: "duotectiq.firebasestorage.app",
+  messagingSenderId: "261048712743",
+  appId: "1:261048712743:web:740d3663911cb1f7065802",
+  measurementId: "G-89L4LRLTC7"
 };
 
 // Initialize Firebase

@@ -46,7 +46,8 @@ const SignupScreen: React.FC = () => {
       const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
       const user = userCredential.user;
 
-      await setDoc(doc(db, 'users', user.uid), {
+      await setDoc(doc(db, 'users', user.uid), 
+      {
         firstName,
         lastName,
         role,
@@ -56,7 +57,9 @@ const SignupScreen: React.FC = () => {
         zip,
         email: email.trim(),
         createdAt: new Date(),
-      });
+      },
+      { merge: true }
+    );
 
       Alert.alert('Success', 'Account created successfully!');
       navigation.navigate('Login');

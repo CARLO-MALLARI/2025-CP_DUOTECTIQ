@@ -24,9 +24,9 @@ export const ClassificationCounter: React.FC<ClassificationCounterProps> = ({ da
 
           {/* Total Row */}
           <View style={styles.counterRow}>
-            <CounterBox color={COLORS.green} value={data[label].total.green} />
-            <CounterBox color={COLORS.damaged} value={data[label].total.damaged} />
-            <CounterBox color={COLORS.red} value={data[label].total.red} />
+            <CounterBoxRow color={COLORS.green} value={data[label].total.green} />
+            <CounterBoxRow color={COLORS.damaged} value={data[label].total.damaged} />
+            <CounterBoxRow color={COLORS.red} value={data[label].total.red} />
           </View>
 
           {/* Size Rows */}
@@ -52,6 +52,11 @@ interface CounterBoxProps {
 
 const CounterBox: React.FC<CounterBoxProps> = ({ color, value }) => (
   <View style={[styles.counterBox, { backgroundColor: color }]}>
+    <Text style={styles.counterValue}>{value}</Text>
+  </View>
+);
+const CounterBoxRow: React.FC<CounterBoxProps> = ({ color, value }) => (
+  <View style={[styles.counterBoxRow, { backgroundColor: color }]}>
     <Text style={styles.counterValue}>{value}</Text>
   </View>
 );
@@ -83,6 +88,14 @@ const styles = StyleSheet.create({
   },
   counterBox: {
     width: 28,
+    height: 28,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 3,
+  },
+  counterBoxRow: {
+    width: 36,
     height: 28,
     borderRadius: 6,
     alignItems: 'center',

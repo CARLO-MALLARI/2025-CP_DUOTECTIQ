@@ -157,7 +157,7 @@ const OverviewScreen: React.FC = () => {
       </View>
 
       {/* ===== Economic Benefits ===== */}
-      <View style={[styles.section, { backgroundColor: '#FDF7EE' }]}>
+      {/* <View style={[styles.section, { backgroundColor: '#FDF7EE' }]}>
         <View style={styles.sectionHeader}>
           <Ionicons name="trending-up-outline" size={20} color="#C47F00" />
           <Text style={[styles.sectionTitle, { color: '#C47F00' }]}>Economic Benefits</Text>
@@ -188,7 +188,7 @@ const OverviewScreen: React.FC = () => {
         <Text style={styles.benefitDesc}>
           Improves buyer confidence, pricing accuracy, and operational speed while minimizing losses due to damaged produce.
         </Text>
-      </View>
+      </View> */}
 
       {/* ===== Supported Crop Varieties ===== */}
       <Text style={styles.subtitle}>Supported Crop Varieties</Text>

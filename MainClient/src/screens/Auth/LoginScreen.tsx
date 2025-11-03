@@ -59,7 +59,7 @@ const LoginScreen: React.FC = () => {
     
     try {
       GoogleSignin.configure({
-        webClientId: '968013919047-23d0agsvnc6180be4opip8qrhhnhv34v.apps.googleusercontent.com',
+        webClientId: '261048712743-0rbmk3d5lg1n69ielci24s5da5b11e05.apps.googleusercontent.com',
         offlineAccess: true,
       });
       console.log('✅ GoogleSignin configured SUCCESSFULLY');

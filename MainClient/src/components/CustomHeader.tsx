@@ -21,6 +21,10 @@ const CustomHeader: React.FC = () => {
     navigation.navigate('Settings');
   };
 
+  const goToProfile = () => {
+    navigation.navigate('Profile');
+  };
+
   const handleSignOutPress = () => {
     Alert.alert(
       'Sign Out',
@@ -84,7 +88,7 @@ const CustomHeader: React.FC = () => {
           onPress={() => setDropdownVisible(false)}
         >
           <View style={styles.dropdown}>
-            <TouchableOpacity style={styles.dropdownItem}>
+            <TouchableOpacity style={styles.dropdownItem} onPress={goToProfile}>
               <Ionicons name="person-outline" size={18} color="#222" />
               <Text style={styles.dropdownText}>Profile</Text>
             </TouchableOpacity>
