@@ -12,8 +12,9 @@ print("✅ Model loaded successfully with classes:", model.names)
 CONF_THRESHOLD = 0.85
 IOU_THRESHOLD = 0.6
 
-# Store counters per client session
+# Store counters and seen track IDs per client session
 session_counters = {}
+session_seen_tracks = {}
 
 def create_empty_counter():
     return {
@@ -85,6 +86,7 @@ def index():
 def handle_connect():
     sid = request.sid
     session_counters[sid] = create_empty_counter()
+    session_seen_tracks[sid] = set() 
     print(f"📡 Client connected: {sid}")
 
 @socketio.on('disconnect')
@@ -93,6 +95,8 @@ def handle_disconnect():
     if sid in session_counters:
         final_data = session_counters.pop(sid)
         print(f"📤 Final counter for {sid}: {final_data}")
+    if sid in session_seen_tracks:
+        session_seen_tracks.pop(sid)
     print(f"❌ Client disconnected: {sid}")
 
 def iou(boxA, boxB):
@@ -120,11 +124,20 @@ def handle_frame(data):
             emit('error', {'message': 'Invalid image data'})
             return
 
-        results = model.predict(img, verbose=False)
+        # Use track() instead of predict() - this maintains object IDs across frames
+        # tracker options: 'botsort.yaml' or 'bytetrack.yaml'
+        results = model.track(
+            img, 
+            persist=True,  # Persist tracks between frames
+            tracker='bytetrack.yaml',
+            conf=CONF_THRESHOLD,
+            verbose=False
+        )
+        
         boxes = results[0].boxes
 
-        # get existing counter for this session
         counter_data = session_counters.get(sid, create_empty_counter())
+        seen_tracks = session_seen_tracks.get(sid, set())
 
         raw_detections = []
         for box in boxes:
@@ -135,15 +148,22 @@ def handle_frame(data):
             cls_id = int(box.cls.cpu().numpy()[0])
             class_name = model.names[cls_id]
             xyxy = box.xyxy.cpu().numpy()[0].tolist()
+            
+            track_id = None
+            if box.id is not None:
+                track_id = int(box.id.cpu().numpy()[0])
 
             label, color, size = parse_class_name(class_name)
-
-            # Update persistent counters
-            if label in counter_data:
-                if color in counter_data[label]["total"]:
-                    counter_data[label]["total"][color] += 1
-                if size in counter_data[label] and color in counter_data[label][size]:
-                    counter_data[label][size][color] += 1
+            is_new = track_id is not None and track_id not in seen_tracks
+            
+            if is_new:
+                if label in counter_data:
+                    if color in counter_data[label]["total"]:
+                        counter_data[label]["total"][color] += 1
+                    if size in counter_data[label] and color in counter_data[label][size]:
+                        counter_data[label][size][color] += 1
+                
+                seen_tracks.add(track_id)
 
             raw_detections.append({
                 "bbox": xyxy,
@@ -151,30 +171,45 @@ def handle_frame(data):
                 "confidence": conf,
                 "label": label,
                 "color": color,
-                "size": size
+                "size": size,
+                "track_id": track_id,
+                "is_new": is_new
             })
 
-        session_counters[sid] = counter_data  # save back
+        session_counters[sid] = counter_data
+        session_seen_tracks[sid] = seen_tracks
 
+        # NMS filtering (though tracking already handles most duplicates)
         filtered = []
         raw_detections.sort(key=lambda x: x["confidence"], reverse=True)
         for det in raw_detections:
             if not any(iou(det["bbox"], f["bbox"]) > IOU_THRESHOLD for f in filtered):
                 filtered.append(det)
+        
         summary = summarize_counters(counter_data)
         height, width = img.shape[:2]
         emit('detections', {
             'detections': [{**d, "confidence": round(d["confidence"], 3)} for d in filtered],
             'counters': counter_data,
             'summary': summary,
-            'image_size': {'width': width, 'height': height}
+            'image_size': {'width': width, 'height': height},
+            'unique_objects': len(seen_tracks)
         })
 
-        print(f"✅ Frame processed in {time.time() - start_time:.2f}s — {len(filtered)} detections (session {sid})")
+        print(f"✅ Frame processed in {time.time() - start_time:.2f}s — {len(filtered)} detections, {len(seen_tracks)} unique objects (session {sid})")
 
     except Exception as e:
         print('❌ Error processing frame:', e)
         emit('error', {'message': str(e)})
+
+@socketio.on('reset_counters')
+def handle_reset():
+    """Allow clients to reset their counters"""
+    sid = request.sid
+    session_counters[sid] = create_empty_counter()
+    session_seen_tracks[sid] = set()
+    emit('counters_reset', {'message': 'Counters reset successfully'})
+    print(f"🔄 Counters reset for session {sid}")
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000, debug=False)
