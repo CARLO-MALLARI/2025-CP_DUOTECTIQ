@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, Modal, Pressable, Alert } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { theme } from '../styles/theme';
+import { auth, db } from '../lib/firebase';
 import { useAuth } from '../providers/AuthProvider';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import { doc, getDoc } from 'firebase/firestore';
 
 type ScanScreenNavigationProp = NativeStackNavigationProp<
   RootStackParamList,
@@ -17,6 +19,35 @@ const CustomHeader: React.FC = () => {
   const [dropdownVisible, setDropdownVisible] = useState(false);
   const { user, signOut } = useAuth();
 
+
+  const [loading, setLoading] = useState(true);
+
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [role, setRole] = useState('');
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
+      try {
+        const docRef = doc(db, 'users', user.uid);
+        const snapshot = await getDoc(docRef);
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          setFirstName(data.firstName || '');
+          setLastName(data.lastName || '');
+          setRole(data.role || '');
+        }
+      } catch (err) {
+        console.error(err);
+        Alert.alert('Error', 'Failed to load profile');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [user]);
   const goToSettings = () => {
     navigation.navigate('Settings');
   };
@@ -70,8 +101,8 @@ const CustomHeader: React.FC = () => {
           resizeMode="cover"
         />
         <View style={{ marginLeft: 8 }}>
-          <Text style={styles.userName}>Reallie Reyes</Text>
-          <Text style={styles.userRole}>Farmer</Text>
+          <Text style={styles.userName}>{firstName} {lastName}</Text>
+          <Text style={styles.userRole}>{role}</Text>
         </View>
         <Ionicons name="chevron-down" size={16} color="#222" style={{ marginLeft: 6 }} />
       </TouchableOpacity>

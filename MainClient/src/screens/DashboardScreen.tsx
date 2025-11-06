@@ -1,4 +1,4 @@
-// src/screens/DashboardScreen.tsx
+
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -83,15 +83,51 @@ const DashboardScreen: React.FC = () => {
   };
 
   // ---- Render helpers -----------------------------------------------
-  const d = data ?? {
+  const defaultData: DashboardData = {
     totalPieces: 0,
     byCrop: { Tomato: 0, 'Bell Pepper': 0 },
     byCategory: {
-      green: { total: 0, small: 0, medium: 0 },
-      red: { total: 0, small: 0, medium: 0 },
-      damaged: { total: 0 },
+      green: { total: 0, Tomato: 0, 'Bell Pepper': 0, small: 0, medium: 0, large: 0 },
+      red:   { total: 0, Tomato: 0, 'Bell Pepper': 0, small: 0, medium: 0, large: 0 },
+      damaged: { total: 0, Tomato: 0, 'Bell Pepper': 0 },
     },
   };
+
+  const d: DashboardData = data
+    ? {
+        totalPieces: data.totalPieces ?? 0,
+        byCrop: {
+          Tomato: data.byCrop?.Tomato ?? 0,
+          'Bell Pepper': data.byCrop?.['Bell Pepper'] ?? 0,
+        },
+        byCategory: {
+          green: {
+            total: data.byCategory?.green?.total ?? 0,
+            Tomato: data.byCategory?.green?.Tomato ?? 0,
+            'Bell Pepper': data.byCategory?.green?.['Bell Pepper'] ?? 0,
+            small: data.byCategory?.green?.small ?? 0,
+            medium: data.byCategory?.green?.medium ?? 0,
+            large: data.byCategory?.green?.large ?? 0,
+          },
+          red: {
+            total: data.byCategory?.red?.total ?? 0,
+            Tomato: data.byCategory?.red?.Tomato ?? 0,
+            'Bell Pepper': data.byCategory?.red?.['Bell Pepper'] ?? 0,
+            small: data.byCategory?.red?.small ?? 0,
+            medium: data.byCategory?.red?.medium ?? 0,
+            large: data.byCategory?.green?.large ?? 0,
+          },
+          damaged: {
+            total: data.byCategory?.damaged?.total ?? 0,
+            Tomato: data.byCategory?.damaged?.Tomato ?? 0,
+            'Bell Pepper': data.byCategory?.damaged?.['Bell Pepper'] ?? 0,
+          },
+        },
+      }
+    : defaultData;
+
+  const showTomato = sortBy === 'All' || sortBy === 'Tomato';
+  const showBell   = sortBy === 'All' || sortBy === 'Bell Pepper';
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -182,21 +218,13 @@ const DashboardScreen: React.FC = () => {
                 <Text style={[styles.cell, styles.headerCell]}>Total</Text>
               </View>
 
-              {/* Not Damaged - Green */}
+              {/* ---------- GREEN ---------- */}
               <TouchableOpacity style={styles.tableRow} onPress={() => toggleExpand('green')}>
                 <Text style={[styles.cell, { flex: 2 }]}>
-                  {expanded.green ? "▾" : "▸"} Not Damaged - Green
+                  {expanded.green ? "Down Arrow" : "Right Arrow"} Not Damaged – Green
                 </Text>
-                <Text style={styles.cell}>
-                  {sortBy === 'All' || sortBy === 'Tomato'
-                    ? d.byCategory.green.total
-                    : 0}
-                </Text>
-                <Text style={styles.cell}>
-                  {sortBy === 'All' || sortBy === 'Bell Pepper'
-                    ? d.byCategory.green.total
-                    : 0}
-                </Text>
+                <Text style={styles.cell}>{showTomato ? d.byCategory.green.Tomato : 0}</Text>
+                <Text style={styles.cell}>{showBell ? d.byCategory.green['Bell Pepper'] : 0}</Text>
                 <Text style={styles.cell}>{d.byCategory.green.total}</Text>
               </TouchableOpacity>
 
@@ -204,50 +232,36 @@ const DashboardScreen: React.FC = () => {
                 <>
                   <View style={styles.subRow}>
                     <Text style={[styles.subCell, { flex: 2 }]}>Small</Text>
-                    <Text style={styles.subCell}>
-                      {sortBy === 'All' || sortBy === 'Tomato'
-                        ? d.byCategory.green.small
-                        : 0}
-                    </Text>
-                    <Text style={styles.subCell}>
-                      {sortBy === 'All' || sortBy === 'Bell Pepper'
-                        ? d.byCategory.green.small
-                        : 0}
-                    </Text>
-                    <Text style={styles.subCell}></Text>
+                    <Text style={styles.subCell}>{showTomato ? d.byCategory.green.small : 0}</Text>
+                    <Text style={styles.subCell}>{showBell ? d.byCategory.green.small : 0}</Text>
+                    <Text style={styles.subCell}>-</Text>
                   </View>
                   <View style={styles.subRow}>
                     <Text style={[styles.subCell, { flex: 2 }]}>Medium</Text>
+                    <Text style={styles.subCell}>{showTomato ? d.byCategory.green.medium : 0}</Text>
+                    <Text style={styles.subCell}>{showBell ? d.byCategory.green.medium : 0}</Text>
+                    <Text style={styles.subCell}>-</Text>
+                  </View>
+                  <View style={styles.subRow}>
+                    <Text style={[styles.subCell, { flex: 2 }]}>Large</Text>
                     <Text style={styles.subCell}>
-                      {sortBy === 'All' || sortBy === 'Tomato'
-                        ? d.byCategory.green.medium
-                        : 0}
+                      {sortBy === 'All' || sortBy === 'Tomato' ? d.byCategory.green.large : 0}
                     </Text>
                     <Text style={styles.subCell}>
-                      {sortBy === 'All' || sortBy === 'Bell Pepper'
-                        ? d.byCategory.green.medium
-                        : 0}
+                      {sortBy === 'All' || sortBy === 'Bell Pepper' ? d.byCategory.green.large : 0}
                     </Text>
                     <Text style={styles.subCell}></Text>
                   </View>
                 </>
               )}
 
-              {/* Not Damaged - Red */}
+              {/* ---------- RED ---------- */}
               <TouchableOpacity style={styles.tableRow} onPress={() => toggleExpand('red')}>
                 <Text style={[styles.cell, { flex: 2 }]}>
-                  {expanded.red ? "▾" : "▸"} Not Damaged - Red
+                  {expanded.red ? "Down Arrow" : "Right Arrow"} Not Damaged – Red
                 </Text>
-                <Text style={styles.cell}>
-                  {sortBy === 'All' || sortBy === 'Tomato'
-                    ? d.byCategory.red.total
-                    : 0}
-                </Text>
-                <Text style={styles.cell}>
-                  {sortBy === 'All' || sortBy === 'Bell Pepper'
-                    ? d.byCategory.red.total
-                    : 0}
-                </Text>
+                <Text style={styles.cell}>{showTomato ? d.byCategory.red.Tomato : 0}</Text>
+                <Text style={styles.cell}>{showBell ? d.byCategory.red['Bell Pepper'] : 0}</Text>
                 <Text style={styles.cell}>{d.byCategory.red.total}</Text>
               </TouchableOpacity>
 
@@ -255,52 +269,38 @@ const DashboardScreen: React.FC = () => {
                 <>
                   <View style={styles.subRow}>
                     <Text style={[styles.subCell, { flex: 2 }]}>Small</Text>
-                    <Text style={styles.subCell}>
-                      {sortBy === 'All' || sortBy === 'Tomato'
-                        ? d.byCategory.red.small
-                        : 0}
-                    </Text>
-                    <Text style={styles.subCell}>
-                      {sortBy === 'All' || sortBy === 'Bell Pepper'
-                        ? d.byCategory.red.small
-                        : 0}
-                    </Text>
-                    <Text style={styles.subCell}></Text>
+                    <Text style={styles.subCell}>{showTomato ? d.byCategory.red.small : 0}</Text>
+                    <Text style={styles.subCell}>{showBell ? d.byCategory.red.small : 0}</Text>
+                    <Text style={styles.subCell}>-</Text>
                   </View>
                   <View style={styles.subRow}>
                     <Text style={[styles.subCell, { flex: 2 }]}>Medium</Text>
+                    <Text style={styles.subCell}>{showTomato ? d.byCategory.red.medium : 0}</Text>
+                    <Text style={styles.subCell}>{showBell ? d.byCategory.red.medium : 0}</Text>
+                    <Text style={styles.subCell}>-</Text>
+                  </View>
+                  <View style={styles.subRow}>
+                    <Text style={[styles.subCell, { flex: 2 }]}>Large</Text>
                     <Text style={styles.subCell}>
-                      {sortBy === 'All' || sortBy === 'Tomato'
-                        ? d.byCategory.red.medium
-                        : 0}
+                      {sortBy === 'All' || sortBy === 'Tomato' ? d.byCategory.red.large : 0}
                     </Text>
                     <Text style={styles.subCell}>
-                      {sortBy === 'All' || sortBy === 'Bell Pepper'
-                        ? d.byCategory.red.medium
-                        : 0}
+                      {sortBy === 'All' || sortBy === 'Bell Pepper' ? d.byCategory.red.large : 0}
                     </Text>
                     <Text style={styles.subCell}></Text>
                   </View>
                 </>
               )}
 
-              {/* Damaged */}
+              {/* ---------- DAMAGED ---------- */}
               <View style={styles.tableRow}>
                 <Text style={[styles.cell, { flex: 2 }]}>Damaged</Text>
-                <Text style={styles.cell}>
-                  {sortBy === 'All' || sortBy === 'Tomato'
-                    ? d.byCategory.damaged.total
-                    : 0}
-                </Text>
-                <Text style={styles.cell}>
-                  {sortBy === 'All' || sortBy === 'Bell Pepper'
-                    ? d.byCategory.damaged.total
-                    : 0}
-                </Text>
+                <Text style={styles.cell}>{showTomato ? d.byCategory.damaged.Tomato : 0}</Text>
+                <Text style={styles.cell}>{showBell ? d.byCategory.damaged['Bell Pepper'] : 0}</Text>
                 <Text style={styles.cell}>{d.byCategory.damaged.total}</Text>
               </View>
 
-              {/* Footer */}
+              {/* ---------- FOOTER ---------- */}
               <View style={[styles.tableRow, { borderTopWidth: 1, borderColor: '#ccc' }]}>
                 <Text style={[styles.cell, { flex: 2, fontWeight: 'bold' }]}>Total Pieces</Text>
                 <Text style={[styles.cell, { fontWeight: 'bold' }]}>{d.byCrop.Tomato}</Text>

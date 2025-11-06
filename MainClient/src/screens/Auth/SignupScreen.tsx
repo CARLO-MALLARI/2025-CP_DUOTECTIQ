@@ -17,6 +17,7 @@ import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../types/navigation';
 import LoadingOverlay from '../../components/LoadingOverlay';
+import { Picker } from '@react-native-picker/picker';
 
 const { width, height } = Dimensions.get('window');
 
@@ -135,14 +136,22 @@ const SignupScreen: React.FC = () => {
               </View>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Role</Text>
-                <TextInput
-                  placeholder="Select a role"
-                  placeholderTextColor="#666"
-                  style={styles.input}
-                  value={role}
-                  onChangeText={setRole}
-                />
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={role}
+                    onValueChange={(itemValue) => setRole(itemValue)}
+                    style={styles.picker}
+                    dropdownIconColor="#333"
+                  >
+                    <Picker.Item label="Select a role..." value="" />
+                    <Picker.Item label="Vendor" value="Vendor" />
+                    <Picker.Item label="Farmer" value="Farmer" />
+                    <Picker.Item label="Small Grower" value="Small Grower" />
+                    <Picker.Item label="Consumer" value="Consumer" />
+                  </Picker>
+                </View>
               </View>
+
             </View>
 
             {/* Address & Street */}
@@ -351,6 +360,19 @@ const styles = StyleSheet.create({
     color: '#1e90ff',
     fontWeight: '600',
   },
+  pickerContainer: {
+    backgroundColor: 'rgba(200, 200, 200, 0.6)',
+    borderWidth: 1.5,
+    borderColor: '#333',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  picker: {
+    height: 40,
+    color: '#333',
+    fontSize: 13,
+  },
+
 });
 
 
