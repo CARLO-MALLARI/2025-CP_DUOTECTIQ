@@ -79,7 +79,7 @@ const CustomHeader: React.FC = () => {
 
   return (
     <View style={styles.header}>
-      {/* Left Section — Logo + App Name */}
+      {/* Left Section — Logo + App Name a */}
       <TouchableOpacity onPress={goToHome}>
         <View style={styles.leftSection}>
           <Image
