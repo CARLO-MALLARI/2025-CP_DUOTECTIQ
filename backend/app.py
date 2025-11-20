@@ -65,106 +65,18 @@ def summarize_counters(counter_data):
 
 
 def parse_class_name(class_name: str):
-    """Parse class name into hierarchical attributes"""
     parts = class_name.lower().split('_')
-    
-    # Determine crop type
-    label = 'Tomato' if 'tomato' in parts else 'Bellpepper' if 'bellpepper' in parts or 'pepper' in parts else 'Unknown'
-    
-    # Determine damage status first (highest priority)
-    is_damaged = 'damaged' in parts or 'damage' in parts
-    
-    # Determine color
-    if is_damaged:
-        color = 'damaged'  # Damaged items might not have clear color
+    label = 'Tomato' if 'tomato' in parts else 'Bellpepper'
+    if 'damaged' in parts:
+        color = 'damaged'
     elif 'red' in parts:
         color = 'red'
     elif 'green' in parts:
         color = 'green'
     else:
         color = 'unknown'
-    
-    # Determine size
-    if 'small' in parts or 's' in parts:
-        size = 'small'
-    elif 'medium' in parts or 'm' in parts or 'med' in parts:
-        size = 'medium'
-    elif 'large' in parts or 'l' in parts or 'big' in parts:
-        size = 'large'
-    else:
-        size = 'unknown'
-    
-    return label, color, size, is_damaged
-
-
-def resolve_conflicts(detections, iou_threshold=0.7):
-    """
-    Resolve conflicting detections of the same object with different attributes.
-    Uses hierarchical logic to determine final attributes.
-    """
-    if not detections:
-        return []
-    
-    # Group overlapping detections
-    groups = []
-    used = set()
-    
-    for i, det in enumerate(detections):
-        if i in used:
-            continue
-        
-        group = [det]
-        used.add(i)
-        
-        for j, other in enumerate(detections):
-            if j <= i or j in used:
-                continue
-            
-            if iou(det["bbox"], other["bbox"]) > iou_threshold:
-                group.append(other)
-                used.add(j)
-        
-        groups.append(group)
-    
-    # Resolve each group
-    resolved = []
-    for group in groups:
-        if len(group) == 1:
-            resolved.append(group[0])
-            continue
-        
-        # Sort by confidence
-        group.sort(key=lambda x: x["confidence"], reverse=True)
-        
-        # Start with highest confidence detection
-        best = group[0].copy()
-        
-        # Apply hierarchical logic
-        # 1. If any detection shows damage, it's damaged
-        if any(d["is_damaged"] for d in group):
-            best["is_damaged"] = True
-            best["color"] = "damaged"
-        
-        # 2. Aggregate size info (take most confident non-unknown)
-        sizes = [(d["size"], d["confidence"]) for d in group if d["size"] != "unknown"]
-        if sizes:
-            best["size"] = max(sizes, key=lambda x: x[1])[0]
-        
-        # 3. Aggregate color info if not damaged
-        if not best["is_damaged"]:
-            colors = [(d["color"], d["confidence"]) for d in group if d["color"] != "unknown"]
-            if colors:
-                best["color"] = max(colors, key=lambda x: x[1])[0]
-        
-        # 4. Take highest confidence bbox
-        best["bbox"] = group[0]["bbox"]
-        best["confidence"] = group[0]["confidence"]
-        best["class"] = f"{best['label']}_{best['color']}_{best['size']}" + ("_damaged" if best["is_damaged"] else "")
-        
-        resolved.append(best)
-    
-    return resolved
-
+    size = next((p for p in ['small', 'medium', 'large'] if p in parts), 'unknown')
+    return label, color, size
 
 @app.route('/')
 def index():
@@ -212,10 +124,11 @@ def handle_frame(data):
             emit('error', {'message': 'Invalid image data'})
             return
 
-        # Use track() instead of predict()
+        # Use track() instead of predict() - this maintains object IDs across frames
+        # tracker options: 'botsort.yaml' or 'bytetrack.yaml'
         results = model.track(
             img, 
-            persist=True,
+            persist=True,  # Persist tracks between frames
             tracker='bytetrack.yaml',
             conf=CONF_THRESHOLD,
             verbose=False
@@ -240,33 +153,10 @@ def handle_frame(data):
             if box.id is not None:
                 track_id = int(box.id.cpu().numpy()[0])
 
-            label, color, size, is_damaged = parse_class_name(class_name)
-            
-            raw_detections.append({
-                "bbox": xyxy,
-                "class": class_name,
-                "confidence": conf,
-                "label": label,
-                "color": color,
-                "size": size,
-                "is_damaged": is_damaged,
-                "track_id": track_id
-            })
-
-        # Resolve conflicts (same object detected multiple times with different attributes)
-        resolved_detections = resolve_conflicts(raw_detections, iou_threshold=0.7)
-
-        # Update counters only for new tracks
-        for det in resolved_detections:
-            track_id = det.get("track_id")
+            label, color, size = parse_class_name(class_name)
             is_new = track_id is not None and track_id not in seen_tracks
-            det["is_new"] = is_new
             
             if is_new:
-                label = det["label"]
-                color = det["color"]
-                size = det["size"]
-                
                 if label in counter_data:
                     if color in counter_data[label]["total"]:
                         counter_data[label]["total"][color] += 1
@@ -275,13 +165,24 @@ def handle_frame(data):
                 
                 seen_tracks.add(track_id)
 
+            raw_detections.append({
+                "bbox": xyxy,
+                "class": class_name,
+                "confidence": conf,
+                "label": label,
+                "color": color,
+                "size": size,
+                "track_id": track_id,
+                "is_new": is_new
+            })
+
         session_counters[sid] = counter_data
         session_seen_tracks[sid] = seen_tracks
 
-        # Final NMS filtering
+        # NMS filtering (though tracking already handles most duplicates)
         filtered = []
-        resolved_detections.sort(key=lambda x: x["confidence"], reverse=True)
-        for det in resolved_detections:
+        raw_detections.sort(key=lambda x: x["confidence"], reverse=True)
+        for det in raw_detections:
             if not any(iou(det["bbox"], f["bbox"]) > IOU_THRESHOLD for f in filtered):
                 filtered.append(det)
         

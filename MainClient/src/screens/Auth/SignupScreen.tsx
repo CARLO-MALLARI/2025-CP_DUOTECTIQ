@@ -18,7 +18,6 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../types/navigation';
 import LoadingOverlay from '../../components/LoadingOverlay';
 import { Picker } from '@react-native-picker/picker';
-import Ionicons from 'react-native-vector-icons/Ionicons';
 
 const { width, height } = Dimensions.get('window');
 
@@ -28,7 +27,6 @@ const SignupScreen: React.FC = () => {
   const navigation = useNavigation<AuthNav>();
 
   const [firstName, setFirstName] = useState('');
-  const [middleName, setMiddleName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
@@ -39,9 +37,7 @@ const SignupScreen: React.FC = () => {
   const [state, setState] = useState('');
   const [zip, setZip] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
+
   const handleSignup = async () => {
     if (password !== confirmPassword) {
       return Alert.alert('Error', 'Passwords do not match!');
@@ -54,7 +50,6 @@ const SignupScreen: React.FC = () => {
       await setDoc(doc(db, 'users', user.uid), 
       {
         firstName,
-        middleName,
         lastName,
         role,
         address,
@@ -98,6 +93,8 @@ const SignupScreen: React.FC = () => {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
           >
+            <Text style={styles.title}>Sign Up</Text>
+            <View style={styles.divider} />
 
             {/* First Name & Last Name */}
             <View style={styles.row}>
@@ -112,25 +109,15 @@ const SignupScreen: React.FC = () => {
                 />
               </View>
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Middle Name</Text>
+                <Text style={styles.label}>Last Name</Text>
                 <TextInput
-                  placeholder="Optional"
+                  placeholder="Enter Last Name"
                   placeholderTextColor="#666"
                   style={styles.input}
-                  value={middleName}
-                  onChangeText={setMiddleName}
+                  value={lastName}
+                  onChangeText={setLastName}
                 />
               </View>
-            </View>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Last Name</Text>
-              <TextInput
-                placeholder="Enter Last Name"
-                placeholderTextColor="#666"
-                style={styles.input}
-                value={lastName}
-                onChangeText={setLastName}
-              />
             </View>
 
             {/* Email & Role */}
@@ -156,8 +143,7 @@ const SignupScreen: React.FC = () => {
                     style={styles.picker}
                     dropdownIconColor="#333"
                   >
-                    
-                    <Picker.Item label=" " value=" " />
+                    <Picker.Item label="Select a role..." value="" />
                     <Picker.Item label="Vendor" value="Vendor" />
                     <Picker.Item label="Farmer" value="Farmer" />
                     <Picker.Item label="Small Grower" value="Small Grower" />
@@ -217,53 +203,29 @@ const SignupScreen: React.FC = () => {
               </View>
             </View>
 
+            {/* Password & Confirm Password */}
             <View style={styles.row}>
-              {/* Password */}
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Password</Text>
-                <View>
-                  <TextInput
-                    placeholder="Enter Password"
-                    placeholderTextColor="#666"
-                    style={styles.input}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowPassword(!showPassword)}
-                    style={styles.icon}>
-                    <Ionicons
-                      name={showPassword ? 'eye-off' : 'eye'}
-                      size={22}
-                      color="#666"
-                    />
-                  </TouchableOpacity>
-                </View>
+                <TextInput
+                  placeholder="Enter Password"
+                  placeholderTextColor="#666"
+                  style={styles.input}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                />
               </View>
-
-              {/* Confirm Password */}
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Confirm Password</Text>
-                <View >
-                  <TextInput
-                    placeholder="Confirm Password"
-                    placeholderTextColor="#666"
-                    style={styles.input}
-                    value={confirmPassword}
-                    onChangeText={setConfirmPassword}
-                    secureTextEntry={!showConfirmPassword}
-                  />
-                  <TouchableOpacity
-                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                    style={styles.icon}>
-                    <Ionicons
-                      name={showConfirmPassword ? 'eye-off' : 'eye'}
-                      size={22}
-                      color="#666"
-                    />
-                  </TouchableOpacity>
-                </View>
+                <TextInput
+                  placeholder="Confirm Password"
+                  placeholderTextColor="#666"
+                  style={styles.input}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry
+                />
               </View>
             </View>
 
@@ -406,15 +368,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   picker: {
-    height: 44,
+    height: 40,
     color: '#333',
-    fontSize: 11,
-  },
-  icon: {
-    position: 'absolute',
-    right: 12,
-    top: '50%',
-    transform: [{ translateY: -11 }], // centers vertically
+    fontSize: 13,
   },
 
 });
