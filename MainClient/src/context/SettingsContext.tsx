@@ -1,7 +1,8 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { auth, db } from '../lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 
-const STORAGE_KEY = 'serverUrl';
 const DEFAULT_URL = 'http://192.168.100.35:5000';
 
 type SettingsContextType = {
@@ -21,46 +22,85 @@ export const SettingsContext = createContext<SettingsContextType>({
 export const SettingsProvider = ({ children }: { children: ReactNode }) => {
   const [serverUrl, setServerUrlState] = useState<string>(DEFAULT_URL);
   const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  // Load URL from storage on mount
+  // Listen to auth state changes
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      console.log('👤 Auth state changed:', user?.uid);
+      setUserId(user?.uid || null);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Load URL from Firestore when userId changes
   const loadUrl = useCallback(async () => {
+    if (!userId) {
+      console.log('ℹ️  No user logged in, using default URL');
+      setServerUrlState(DEFAULT_URL);
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      console.log('📥 Loading URL from AsyncStorage...');
-      const savedUrl = await AsyncStorage.getItem(STORAGE_KEY);
-      console.log('📥 Retrieved URL:', savedUrl);
+      console.log('📥 Loading URL from Firestore for user:', userId);
+      const docRef = doc(db, 'userSettings', userId);
+      const docSnap = await getDoc(docRef);
       
-      if (savedUrl && savedUrl.startsWith('http')) {
-        setServerUrlState(savedUrl);
-        console.log('✅ URL loaded:', savedUrl);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        const savedUrl = data.serverUrl;
+        console.log('📥 Retrieved URL:', savedUrl);
+        
+        if (savedUrl && savedUrl.startsWith('http')) {
+          setServerUrlState(savedUrl);
+          console.log('✅ URL loaded:', savedUrl);
+        } else {
+          console.log('ℹ️  No valid saved URL, using default');
+          setServerUrlState(DEFAULT_URL);
+        }
       } else {
-        console.log('ℹ️  No valid saved URL, using default');
+        console.log('ℹ️  No settings document found, using default');
+        setServerUrlState(DEFAULT_URL);
       }
     } catch (error) {
       console.error('❌ Failed to load URL:', error);
+      setServerUrlState(DEFAULT_URL);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [userId]);
 
-  // Initial load
+  // Load URL when userId changes
   useEffect(() => {
     loadUrl();
   }, [loadUrl]);
 
-  // Save URL to storage and update state
+  // Save URL to Firestore and update state
   const setServerUrl = useCallback(async (url: string) => {
+    if (!userId) {
+      throw new Error('User must be logged in to save settings');
+    }
+
     try {
       console.log('💾 Saving new URL:', url);
       
-      // Save to AsyncStorage first
-      await AsyncStorage.setItem(STORAGE_KEY, url);
-      console.log('✅ URL saved to AsyncStorage');
+      // Save to Firestore
+      const docRef = doc(db, 'userSettings', userId);
+      await setDoc(docRef, {
+        serverUrl: url,
+        updatedAt: new Date().toISOString(),
+      }, { merge: true });
+      
+      console.log('✅ URL saved to Firestore');
       
       // Verify it was saved
-      const verification = await AsyncStorage.getItem(STORAGE_KEY);
-      console.log('🔍 Verification:', verification);
+      const verification = await getDoc(docRef);
+      const savedUrl = verification.data()?.serverUrl;
+      console.log('🔍 Verification:', savedUrl);
       
-      if (verification !== url) {
+      if (savedUrl !== url) {
         throw new Error('Verification failed - URL not saved correctly');
       }
       
@@ -75,7 +115,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
       console.error('❌ Failed to save URL:', error);
       throw error;
     }
-  }, []);
+  }, [userId]);
 
   // Manual reload function
   const reloadUrl = useCallback(async () => {

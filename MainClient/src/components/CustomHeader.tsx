@@ -55,6 +55,10 @@ const CustomHeader: React.FC = () => {
   const goToProfile = () => {
     navigation.navigate('Profile');
   };
+  
+  const goToHome = () => {
+    navigation.navigate('Scan');
+  };
 
   const handleSignOutPress = () => {
     Alert.alert(
@@ -76,18 +80,21 @@ const CustomHeader: React.FC = () => {
   return (
     <View style={styles.header}>
       {/* Left Section — Logo + App Name */}
-      <View style={styles.leftSection}>
-        <Image
-          source={require('../assets/Logo.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <Text style={styles.appName}>
-          <Text style={{ color: '#fff' }}>Duo</Text>
-          <Text style={{ color: '#fff' }}>tect</Text>
-          <Text style={{ color: '#ff4a4aff' }}>IQ</Text>
-        </Text>
-      </View>
+      <TouchableOpacity onPress={goToHome}>
+        <View style={styles.leftSection}>
+          <Image
+            source={require('../assets/Logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
+          <Text style={styles.appName}>
+            <Text style={{ color: '#fff' }}>Duo</Text>
+            <Text style={{ color: '#fff' }}>tect</Text>
+            <Text style={{ color: '#ff4a4aff' }}>IQ</Text>
+          </Text>
+        </View>
+      </TouchableOpacity>
+      
 
       {/* Right Section — Profile dropdown */}
       <TouchableOpacity

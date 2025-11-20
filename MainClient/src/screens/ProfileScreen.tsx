@@ -32,6 +32,7 @@ const ProfileScreen: React.FC = () => {
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [middleName, setMiddleName] = useState('');
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('');
   const [address, setAddress] = useState('');
@@ -49,6 +50,7 @@ const ProfileScreen: React.FC = () => {
           const data = snapshot.data();
           setFirstName(data.firstName || '');
           setLastName(data.lastName || '');
+          setMiddleName(data.middleName || '');
           setEmail(data.email || '');
           setRole(data.role || '');
           setAddress(data.address || '');
@@ -136,36 +138,28 @@ const ProfileScreen: React.FC = () => {
                   placeholder="Enter Last Name"
                 />
               </View>
+              
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Middle Name</Text>
+              <TextInput
+                placeholder="Optional"
+                placeholderTextColor="#666"
+                style={styles.input}
+                value={middleName}
+                onChangeText={setMiddleName}
+              />
             </View>
 
             {/* Email (read-only) */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Email</Text>
               <TextInput
-                style={[styles.input, { backgroundColor: '#ddd' }]}
+                style={[styles.input, { backgroundColor: '#b2b2b2ff' }]}
                 value={email}
                 editable={false}
               />
             </View>
-
-            {/* Role */}
-            <View style={styles.inputGroup}>
-                <Text style={styles.label}>Role</Text>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={role}
-                    onValueChange={(itemValue) => setRole(itemValue)}
-                    style={styles.picker}
-                    dropdownIconColor="#333"
-                  >
-                    <Picker.Item label="Select a role..." value="" />
-                    <Picker.Item label="Vendor" value="Vendor" />
-                    <Picker.Item label="Farmer" value="Farmer" />
-                    <Picker.Item label="Small Grower" value="Small Grower" />
-                    <Picker.Item label="Consumer" value="Consumer" />
-                  </Picker>
-                </View>
-              </View>
 
             {/* Address */}
             <View style={styles.row}>
