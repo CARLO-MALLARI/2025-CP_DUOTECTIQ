@@ -11,7 +11,7 @@ const defectsData = [
     items: [
       {
         name: 'Blemish / Scar',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Blemish(T).png'),
         crop: 'TOMATO',
         looks: 'Superficial tan/brown scars or corky patches.',
         cause: 'Mechanical injury or rubbing on stem.',
@@ -19,7 +19,7 @@ const defectsData = [
       },
       {
         name: 'Worm Bite / Insect Hole',
-        image: require('../assets/splash.png'),
+        image: require('../assets/bite(T).png'),
         crop: 'TOMATO',
         looks: 'Small holes with frass (crumbs).',
         cause: 'caterpillars or any insect bites.',
@@ -27,7 +27,7 @@ const defectsData = [
       },
       {
         name: 'Sunscald (Discoloration)',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Sunscald(T).png'),
         crop: 'TOMATO',
         looks: 'Whitish, papery spot on exposed fruit.',
         cause: 'Direct intense sunlight.',
@@ -35,7 +35,7 @@ const defectsData = [
       },
       {
         name: 'Bruise / Pressure Damage',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Bruise(T).png'),
         crop: 'TOMATO',
         looks: 'soft, dark, watery spot after packing/transport.',
         cause: 'Dropping fruit, overfilled crates, stacking weights.',
@@ -43,7 +43,7 @@ const defectsData = [
       },
       {
         name: 'Cracks',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Cracks(T).png'),
         crop: 'TOMATO',
         looks: 'Vertical/horizontal on fruit wall',
         cause: 'Irregular watering or excess rain.',
@@ -51,7 +51,7 @@ const defectsData = [
       },
       {
         name: 'Overripe / Softening',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Overripe(T).png'),
         crop: 'TOMATO',
         looks: 'Overly soft flesh, dull or overly deep color, easy to leak.',
         cause: 'Delayed harvest or hot storage.',
@@ -64,7 +64,7 @@ const defectsData = [
     items: [
       {
         name: 'Blemish / Scar',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Blemish(B).png'),
         crop: 'BELL PEPPER',
         looks: 'Small rough patches or healed marks on skin',
         cause: 'Rubbing, handling or minor insect damage.',
@@ -72,7 +72,7 @@ const defectsData = [
       },
       {
         name: 'Worm Bite / Chewed Area',
-        image: require('../assets/splash.png'),
+        image: require('../assets/bite(B).png'),
         crop: 'BELL PEPPER',
         looks: 'Small holes with dark chewed areas.',
         cause: 'Caterpillars or fruit borers.',
@@ -80,7 +80,7 @@ const defectsData = [
       },
       {
         name: 'Sunscald (Discoloration)',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Sunscald(B).png'),
         crop: 'BELL PEPPER',
         looks: 'White, pale or papery patches.',
         cause: 'Direct exposure to strong sunlight.',
@@ -88,7 +88,7 @@ const defectsData = [
       },
       {
         name: 'Shrivel / Dehydration',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Shrivel(B).png'),
         crop: 'BELL PEPPER',
         looks: 'Wrinkled , soft and dehydrated skin.',
         cause: 'Loss of moisture during storage.',
@@ -96,7 +96,7 @@ const defectsData = [
       },
       {
         name: 'Crack / Split',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Cracks(B).png'),
         crop: 'BELL PEPPER',
         looks: 'Visible lines or open splits on skin.',
         cause: 'Sudden rapid growth or heavy rain after dry period.',
@@ -104,7 +104,7 @@ const defectsData = [
       },
       {
         name: 'Cold Injury (Chilling)',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Cold(B).png'),
         crop: 'BELL PEPPER',
         looks: 'Soft, watery spots that may turn dark or sunken.',
         cause: 'Exposure to temperatures below 45°F (7°C).',
