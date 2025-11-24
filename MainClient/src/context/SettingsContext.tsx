@@ -3,7 +3,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
-const DEFAULT_URL = 'http://192.168.100.35:5000';
+const DEFAULT_URL = 'http://192.168.100.33:5000';
 
 type SettingsContextType = {
   serverUrl: string;

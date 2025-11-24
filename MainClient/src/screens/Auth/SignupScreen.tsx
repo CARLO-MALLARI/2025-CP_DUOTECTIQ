@@ -83,6 +83,7 @@ const SignupScreen: React.FC = () => {
       style={styles.background}
       resizeMode="cover"
     >
+      <View style={styles.overlay} />
       <View style={styles.container}>
         {/* Modal-like Card Container */}
         <View style={styles.modalCard}>
@@ -293,6 +294,10 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     height: '100%',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
   },
   container: {
     flex: 1,

@@ -6,10 +6,10 @@ import cv2, base64, numpy as np, time
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-model = YOLO("best.pt")
+model = YOLO("yolov8.pt")
 print("✅ Model loaded successfully with classes:", model.names)
 
-CONF_THRESHOLD = 0.85
+CONF_THRESHOLD = 0.55  # Lowered to catch size-specific detections
 IOU_THRESHOLD = 0.6
 
 # Store counters and seen track IDs per client session
@@ -76,7 +76,7 @@ def parse_class_name(class_name: str):
     
     # Determine color
     if is_damaged:
-        color = 'damaged'  # Damaged items might not have clear color
+        color = 'damaged'
     elif 'red' in parts:
         color = 'red'
     elif 'green' in parts:
@@ -84,23 +84,86 @@ def parse_class_name(class_name: str):
     else:
         color = 'unknown'
     
-    # Determine size
-    if 'small' in parts or 's' in parts:
+    # Determine size from class name
+    if 'small' in parts:
         size = 'small'
-    elif 'medium' in parts or 'm' in parts or 'med' in parts:
+    elif 'medium' in parts:
         size = 'medium'
-    elif 'large' in parts or 'l' in parts or 'big' in parts:
+    elif 'large' in parts:
         size = 'large'
     else:
-        size = 'unknown'
+        size = 'unknown'  # For generic classes like "tomato_green"
     
     return label, color, size, is_damaged
 
 
-def resolve_conflicts(detections, iou_threshold=0.7):
+def estimate_size_from_bbox(bbox, image_width, image_height, crop_type):
+    """
+    TEMPORARY WORKAROUND: Estimate size from bounding box dimensions.
+    This is NOT as accurate as a trained model but works until you retrain.
+    
+    Args:
+        bbox: [x1, y1, x2, y2] in pixels
+        image_width: Width of input image
+        image_height: Height of input image
+        crop_type: 'Tomato' or 'Bellpepper'
+    
+    Returns:
+        'small', 'medium', or 'large'
+    """
+    x1, y1, x2, y2 = bbox
+    
+    # Calculate bbox area as percentage of image
+    bbox_width = x2 - x1
+    bbox_height = y2 - y1
+    bbox_area = bbox_width * bbox_height
+    image_area = image_width * image_height
+    area_percentage = (bbox_area / image_area) * 100
+    
+    # Also consider aspect ratio and longest dimension
+    aspect_ratio = bbox_width / bbox_height if bbox_height > 0 else 1
+    max_dimension = max(bbox_width, bbox_height)
+    max_dim_percentage = (max_dimension / max(image_width, image_height)) * 100
+    
+    # Size thresholds (adjust these based on your camera setup and distance)
+    # These are ROUGH estimates - you'll need to tune them for your setup
+    
+    if crop_type == 'Tomato':
+        # Tomatoes are typically round/spherical
+        if area_percentage < 2.0 or max_dim_percentage < 10:
+            return 'small'
+        elif area_percentage < 6.0 or max_dim_percentage < 18:
+            return 'medium'
+        else:
+            return 'large'
+    
+    elif crop_type == 'Bellpepper':
+        # Bell peppers are typically elongated
+        if area_percentage < 3.0 or max_dim_percentage < 12:
+            return 'small'
+        elif area_percentage < 8.0 or max_dim_percentage < 20:
+            return 'medium'
+        else:
+            return 'large'
+    
+    # Default fallback
+    if area_percentage < 3.0:
+        return 'small'
+    elif area_percentage < 7.0:
+        return 'medium'
+    else:
+        return 'large'
+
+
+def resolve_conflicts(detections, iou_threshold=0.7, specificity_bonus=0.15):
     """
     Resolve conflicting detections of the same object with different attributes.
-    Uses hierarchical logic to determine final attributes.
+    Prioritizes more specific detections (with size info) over generic ones.
+    
+    Args:
+        specificity_bonus: Confidence boost for detections with size info (default: 0.15)
+                          This makes "tomato_red_small" (0.60) effectively compete 
+                          with "tomato_red" (0.70) as 0.60 + 0.15 = 0.75
     """
     if not detections:
         return []
@@ -133,33 +196,65 @@ def resolve_conflicts(detections, iou_threshold=0.7):
             resolved.append(group[0])
             continue
         
-        # Sort by confidence
-        group.sort(key=lambda x: x["confidence"], reverse=True)
+        # PRIORITY LOGIC: More specific > Less specific
+        # Apply specificity bonus to prefer detections with size information
         
-        # Start with highest confidence detection
+        # Calculate effective confidence (actual + bonus for specificity)
+        for det in group:
+            det["effective_confidence"] = det["confidence"]
+            if det["size"] != "unknown":
+                det["effective_confidence"] += specificity_bonus
+        
+        # Sort by effective confidence
+        group.sort(key=lambda x: x["effective_confidence"], reverse=True)
+        
+        # Take the highest effective confidence detection
         best = group[0].copy()
         
-        # Apply hierarchical logic
-        # 1. If any detection shows damage, it's damaged
+        # Debug logging for conflicts
+        if len(group) > 1:
+            print(f"  🔀 Merging {len(group)} detections for same object:")
+            for d in group:
+                marker = "✅" if d == group[0] else "  "
+                print(f"    {marker} {d['class']:30s} conf={d['confidence']:.3f} eff={d['effective_confidence']:.3f} size={d['size']}")
+        
+        # Apply hierarchical logic across ALL detections in group
+        
+        # 1. If ANY detection shows damage, it's damaged
         if any(d["is_damaged"] for d in group):
             best["is_damaged"] = True
             best["color"] = "damaged"
         
-        # 2. Aggregate size info (take most confident non-unknown)
-        sizes = [(d["size"], d["confidence"]) for d in group if d["size"] != "unknown"]
-        if sizes:
-            best["size"] = max(sizes, key=lambda x: x[1])[0]
+        # 2. If best detection doesn't have size, try to get it from others
+        if best["size"] == "unknown":
+            sizes_with_conf = [(d["size"], d["effective_confidence"]) for d in group if d["size"] != "unknown"]
+            if sizes_with_conf:
+                best["size"] = max(sizes_with_conf, key=lambda x: x[1])[0]
+                print(f"    ⚡ Inherited size '{best['size']}' from overlapping detection")
         
-        # 3. Aggregate color info if not damaged
+        # 3. Aggregate color info if not damaged (take most confident)
         if not best["is_damaged"]:
-            colors = [(d["color"], d["confidence"]) for d in group if d["color"] != "unknown"]
+            colors = [(d["color"], d["effective_confidence"]) for d in group if d["color"] not in ["unknown", "damaged"]]
             if colors:
-                best["color"] = max(colors, key=lambda x: x[1])[0]
+                potential_color = max(colors, key=lambda x: x[1])[0]
+                if potential_color != best["color"]:
+                    print(f"    ⚡ Color override: {best['color']} → {potential_color}")
+                    best["color"] = potential_color
         
-        # 4. Take highest confidence bbox
-        best["bbox"] = group[0]["bbox"]
-        best["confidence"] = group[0]["confidence"]
-        best["class"] = f"{best['label']}_{best['color']}_{best['size']}" + ("_damaged" if best["is_damaged"] else "")
+        # 4. Keep the bbox and actual confidence from the best detection
+        best["bbox"] = best["bbox"]
+        best["confidence"] = best["confidence"]  # Use REAL confidence, not effective
+        
+        # 5. Update class name to reflect resolved attributes
+        if best["is_damaged"]:
+            best["class"] = f"{best['label'].lower()}_{best['color']}_damaged"
+        elif best["size"] != "unknown":
+            best["class"] = f"{best['label'].lower()}_{best['color']}_{best['size']}"
+        else:
+            best["class"] = f"{best['label'].lower()}_{best['color']}"
+        
+        # Clean up temporary field
+        del best["effective_confidence"]
         
         resolved.append(best)
     
@@ -242,6 +337,11 @@ def handle_frame(data):
 
             label, color, size, is_damaged = parse_class_name(class_name)
             
+            # WORKAROUND: If size is unknown, estimate from bbox dimensions
+            if size == 'unknown' and not is_damaged:
+                height, width = img.shape[:2]
+                size = estimate_size_from_bbox(xyxy, width, height, label)
+            
             raw_detections.append({
                 "bbox": xyxy,
                 "class": class_name,
@@ -255,6 +355,14 @@ def handle_frame(data):
 
         # Resolve conflicts (same object detected multiple times with different attributes)
         resolved_detections = resolve_conflicts(raw_detections, iou_threshold=0.7)
+        
+        # Debug: Log conflict resolution
+        if len(raw_detections) > len(resolved_detections):
+            print(f"🔧 Resolved {len(raw_detections)} detections → {len(resolved_detections)} (merged duplicates)")
+            # Show what was merged
+            for det in resolved_detections:
+                print(f"   ✓ {det['class']} (conf: {det['confidence']:.3f}, size: {det['size']})")
+
 
         # Update counters only for new tracks
         for det in resolved_detections:

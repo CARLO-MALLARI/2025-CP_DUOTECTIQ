@@ -136,6 +136,7 @@ const LoginScreen: React.FC = () => {
             source={require('../../assets/auth-bg.jpg')}
             style={styles.topImage}
           />
+          <View style={styles.overlay} />
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
             <Svg height={height * 0.4} width={width} style={{ position: 'absolute' }}>
               <Defs>
@@ -253,6 +254,10 @@ const styles = StyleSheet.create({
     height: 180,
     position: 'relative',
     overflow: 'hidden',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
   },
   topImage: {
     width: '100%',

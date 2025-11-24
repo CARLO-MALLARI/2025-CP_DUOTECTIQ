@@ -35,7 +35,7 @@ const SettingsScreen = () => {
 
   // 🖥️ Server URL
   const [serverUrl, setServerUrl] = useState('');
-  const DEFAULT_URL = 'http://192.168.1.100:5000'; // change to your actual local default
+  const DEFAULT_URL = 'https://duotecback.onrender.com/';
 
   useEffect(() => {
     (async () => {

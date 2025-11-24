@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Dimensions,
+  Image,
 } from 'react-native';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { AuthStackParamList } from '../../types/navigation';
@@ -25,45 +26,23 @@ const DuotectIQWelcome: React.FC = () => {
     <View style={styles.container}>
       {/* Background Image */}
       <ImageBackground
-        source={require('../../assets/auth-bg.jpg')}
-        style={styles.background}
-        resizeMode="cover"
+      source={require('../../assets/auth-bg.jpg')}
+      style={styles.background}
+      resizeMode="cover"
       >
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-        <Svg height={height} width={width * 0.8} style={{ position: 'absolute' }}>
-          <Defs>
-            <LinearGradient id="waveGrad" x1="0" y1="0" x2="1" y2="0">
-              <Stop offset="0" stopColor="rgba(225, 225, 225, 0.1)" />
-              <Stop offset="0.3" stopColor="rgba(225, 225, 225, 0.7)" />
-              <Stop offset="0.6" stopColor="rgba(226, 226, 226, 0.4)" />
-              <Stop offset="0.85" stopColor="rgba(224, 224, 224, 0.1)" />
-              <Stop offset="1" stopColor="rgba(225, 225, 225, 0)" />
-            </LinearGradient>
-          </Defs>
+      <View style={styles.overlay} />
 
-          {/* Main wave shape with actual curves */}
-          <Path
-            d={`
-              M0 0
-              L${width * 0.6} 0
-              Q${width * 0.7} ${height * 0.15} ${width * 0.65} ${height * 0.25}
-              Q${width * 0.6} ${height * 0.35} ${width * 0.7} ${height * 0.5}
-              Q${width * 0.8} ${height * 0.65} ${width * 0.65} ${height * 0.75}
-              Q${width * 0.5} ${height * 0.85} ${width * 0.6} ${height}
-              L0 ${height}
-              Z
-            `}
-            fill="url(#waveGrad)"
-            opacity={0.5}
-          />
-        </Svg>
-      </View>
-        {/* Content Container */}
-        <View style={styles.textContainer}>
-          {/* Logo */}
+      {/* Full Screen Content */}
+      <View style={styles.contentWrapper}>
+        {/* Top Content (Logo + Title + Subtitle) */}
+        <View style={styles.topContent}>
           <View style={styles.logoContainer}>
             <View style={styles.logoIcon}>
-              <Text style={styles.logoEmoji}>🍅</Text>
+              <Image
+                source={require('../../assets/Logo.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
             </View>
             <Text style={styles.logoText}>
               <Text style={styles.logoGreen}>Duotect</Text>
@@ -71,32 +50,41 @@ const DuotectIQWelcome: React.FC = () => {
             </Text>
           </View>
 
-          {/* Title */}
           <Text style={styles.title}>
-            Tired of sorting{'\n'}the hard way?
+            Tired of sorting the hard way?
           </Text>
 
-          {/* Subtitle */}
           <Text style={styles.subtitle}>
-            <Text style={styles.bold}>DUOTECTIQ</Text> makes{'\n'}
-            crop checking smart,{'\n'}
-            fast, and accurate.{'\n'}
-            Better crops, less waste,{'\n'}
-            more income - that's{'\n'}
-            DuotectIQ way.
+            <Text style={styles.bold}>DuotectIQ</Text> makes
+            crop checking smart,
+            fast, and accurate.
+            Better crops, less waste,
+            more income - that's
+            the DuotectIQ way.
           </Text>
-
-          {/* Buttons */}
-          <View style={styles.buttons}>
-            <TouchableOpacity style={styles.loginBtn} onPress={() => navigation.navigate('Login')}>
-              <Text style={styles.loginText}>Login</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.signUpBtn} onPress={() => navigation.navigate('Signup')}>
-              <Text style={styles.signUpText}>Sign Up</Text>
-            </TouchableOpacity>
-          </View>
         </View>
+
+        {/* Bottom Buttons - Minimal Flat Style */}
+        <View style={styles.buttonsContainer}>
+          <TouchableOpacity 
+            style={styles.loginBtn} 
+            onPress={() => navigation.navigate('Login')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.loginText}>Login</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.signUpBtn} 
+            onPress={() => navigation.navigate('Signup')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.signUpText}>Sign Up</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
       </ImageBackground>
+
     </View>
   );
 };
@@ -104,88 +92,134 @@ const DuotectIQWelcome: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    width: '100%',
   },
   background: {
     flex: 1,
   },
-  svg: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
   },
-  textContainer: {
-    position: 'absolute',
-    top: '10%',
-    left: 20,
-    right: 80,
+
+  contentWrapper: {
+    flex: 1,
+    paddingHorizontal: 10,
+    paddingTop: 50,
+    justifyContent: 'space-between',
   },
+
+  topContent: {
+    alignItems: 'center',
+  },
+
   logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 20,
   },
   logoIcon: {
     width: 40,
     height: 40,
-    backgroundColor: 'white',
     borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
   },
-  logoEmoji: {
-    fontSize: 24,
+  logoText: { 
+    fontSize: 34, 
+    fontWeight: 'bold' 
   },
-  logoText: {
-    fontSize: 24,
-    fontWeight: 'bold',
+  logoGreen: { 
+    color: '#1b5e20' 
   },
-  logoGreen: {
-    color: '#1b5e20',
+  logoRed: { 
+    color: '#c62828' 
   },
-  logoRed: {
-    color: '#c62828',
-  },
+
   title: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#2b3a2b',
-    marginBottom: 10,
+    textAlign: 'center',
+    marginTop: 150,
     lineHeight: 28,
+    marginLeft: 25,
+    marginRight: 25,
   },
+
   subtitle: {
-    color: '#2b3a2b',
-    fontSize: 15,
+    textAlign: 'center',
+    color: '#040404ff',
+    fontSize: 14,
     lineHeight: 22,
+    marginLeft: 25,
+    marginRight: 25,
   },
-  bold: {
-    fontWeight: 'bold',
+  bold: { 
+    fontWeight: 'bold' 
   },
-  buttons: {
-    flexDirection: 'row',
-    marginTop: 20,
-  },
-  loginBtn: {
-    backgroundColor: '#2b6e2f',
-    paddingVertical: 10,
+
+  // Premium Modern Button Styles
+  buttonsContainer: {
+    flexDirection: 'column',
+    justifyContent: 'center',
+    marginBottom: 70,
     paddingHorizontal: 25,
-    borderRadius: 25,
-    marginRight: 10,
+  },
+
+  loginBtn: {
+    backgroundColor: '#1b5e20',
+    paddingVertical: 18,
+    paddingHorizontal: 40,
+    borderRadius: 16,
+    marginBottom: 14,
+    alignItems: 'center',
+    shadowColor: '#1b5e20',
+    shadowOffset: { 
+      width: 0, 
+      height: 8 
+    },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 10,
   },
   loginText: {
-    color: 'white',
-    fontWeight: 'bold',
+    color: '#ffffff',
+    fontWeight: '700',
+    fontSize: 17,
+    letterSpacing: 0.8,
   },
+
   signUpBtn: {
-    borderWidth: 1,
-    borderColor: '#2b6e2f',
-    paddingVertical: 10,
-    paddingHorizontal: 25,
-    borderRadius: 25,
+    backgroundColor: '#ffffff',
+    borderWidth: 0,
+    paddingVertical: 18,
+    paddingHorizontal: 40,
+    borderRadius: 16,
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { 
+      width: 0, 
+      height: 4 
+    },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 6,
   },
   signUpText: {
-    color: '#2b6e2f',
-    fontWeight: 'bold',
+    color: '#1b5e20',
+    fontWeight: '700',
+    fontSize: 17,
+    letterSpacing: 0.8,
+  },
+
+  logo: {
+    width: 72,
+    height: 72,
+    marginRight: -10,
+    marginTop: -20,
+    marginBottom: -10,
+    marginLeft: -20,
   },
 });
 
