@@ -6,6 +6,7 @@ interface DetectionOverlayProps {
   detections: Detection[];
   cameraWidth: number;
   cameraHeight: number;
+  isLocalModel?: boolean;
 }
 
 const DETECTION_IMAGE_WIDTH = 640;
@@ -15,9 +16,10 @@ export const DetectionOverlay: React.FC<DetectionOverlayProps> = ({
   detections,
   cameraWidth,
   cameraHeight,
+  isLocalModel = false,
 }) => {
-  const scaleX = cameraWidth / DETECTION_IMAGE_WIDTH || 1;
-  const scaleY = cameraHeight / DETECTION_IMAGE_HEIGHT || 1;
+  const scaleX = isLocalModel ? 1 : cameraWidth / 640;
+  const scaleY = isLocalModel ? 1 : cameraHeight / 480;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">

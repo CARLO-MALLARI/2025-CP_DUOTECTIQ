@@ -1,5 +1,4 @@
 import * as ort from 'onnxruntime-react-native';
-import { decode as decodeJpegBase64 } from 'jpeg-js';
 import RNFS from 'react-native-fs';
 import { Platform } from 'react-native';
 import { Detection, CounterData } from '../types/detection.types';
@@ -11,7 +10,7 @@ let seenTracks = new Set<string>();
 let sessionCounters: CounterData = createEmptyCounter();
 let nextTrackId = 0;
 
-const CONF_THRESHOLD = 0.55;
+const CONF_THRESHOLD = 0.80;
 const IOU_THRESHOLD = 0.6;
 const SPECIFICITY_BONUS = 0.15;
 
@@ -46,22 +45,172 @@ function createEmptyCounter(): CounterData {
 }
 
 /**
+ * Debug function to verify model file exists
+ */
+export async function debugModelPath(): Promise<void> {
+  console.log('🔍 Debugging model path...');
+  
+  if (Platform.OS === 'android') {
+    try {
+      console.log('📱 Platform: Android');
+      
+      // Try copying from assets to verify it exists
+      const destPath = `${RNFS.CachesDirectoryPath}/test_model.onnx`;
+      console.log(`Attempting to copy from assets to: ${destPath}`);
+      
+      await RNFS.copyFileAssets('yolov8.onnx', destPath);
+      
+      const stats = await RNFS.stat(destPath);
+      console.log('✅ Model file found in Android assets!');
+      console.log(`📊 File size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
+      
+      // Clean up test file
+      await RNFS.unlink(destPath);
+    } catch (error) {
+      console.error('❌ Model file NOT found in Android assets');
+      console.error('Make sure yolov8.onnx is in: android/app/src/main/assets/');
+      console.error('Error:', error);
+    }
+  } else if (Platform.OS === 'ios') {
+    try {
+      console.log('📱 Platform: iOS');
+      
+      const mainBundlePath = RNFS.MainBundlePath;
+      const modelPath = `${mainBundlePath}/yolov8.onnx`;
+      
+      console.log(`Checking iOS bundle path: ${modelPath}`);
+      
+      const exists = await RNFS.exists(modelPath);
+      if (exists) {
+        const stats = await RNFS.stat(modelPath);
+        console.log('✅ Model file found in iOS bundle!');
+        console.log(`📊 File size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
+      } else {
+        console.error('❌ Model file NOT found at:', modelPath);
+        
+        // List files in bundle to help debug
+        try {
+          const bundleFiles = await RNFS.readDir(mainBundlePath);
+          console.log('📂 Files in iOS bundle:');
+          bundleFiles.slice(0, 20).forEach(f => {
+            console.log(`  - ${f.name}`);
+          });
+          if (bundleFiles.length > 20) {
+            console.log(`  ... and ${bundleFiles.length - 20} more files`);
+          }
+        } catch (listError) {
+          console.error('Could not list bundle files:', listError);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error checking iOS model:', error);
+    }
+  }
+}
+
+/**
+ * Load the ONNX fallback model
+ * 
+ * File placement:
+ * - Android: android/app/src/main/assets/yolov8.onnx
+ * - iOS: Add to Xcode project (Copy Bundle Resources)
+ */
+export async function loadFallbackModel(): Promise<boolean> {
+  try {
+    let modelPath: string;
+    
+    if (Platform.OS === 'android') {
+     const cachePath = `${RNFS.CachesDirectoryPath}/yolov8.onnx`;
+      
+      try {
+        // Always copy from assets on first launch (guaranteed to work)
+        const exists = await RNFS.exists(cachePath);
+        if (!exists) {
+          console.log('Copying yolov8.onnx from assets to cache...');
+          await RNFS.copyFileAssets('yolov8.onnx', cachePath);
+          console.log('Model copied to:', cachePath);
+        }
+
+        session = await ort.InferenceSession.create(cachePath);
+        console.log("ONNX model loaded from cache!");
+        return true;
+      } catch (error) {
+        console.error("Still failed after copy:", error);
+        throw error;
+      }
+      
+    } else if (Platform.OS === 'ios') {
+      // For iOS: Use the bundle path
+      const mainBundlePath = RNFS.MainBundlePath;
+      modelPath = `${mainBundlePath}/yolov8.onnx`;
+      
+      console.log("📦 Loading ONNX model from iOS bundle...");
+      console.log(`📂 Path: ${modelPath}`);
+      
+      // Verify file exists
+      const exists = await RNFS.exists(modelPath);
+      if (!exists) {
+        throw new Error(
+          `Model file not found at: ${modelPath}\n` +
+          `Make sure yolov8.onnx is added to Xcode project with "Copy Bundle Resources"`
+        );
+      }
+      
+      const stats = await RNFS.stat(modelPath);
+      console.log(`📊 Model size: ${(stats.size / 1024 / 1024).toFixed(2)} MB`);
+      
+      session = await ort.InferenceSession.create(modelPath);
+      console.log("✅ ONNX model loaded successfully");
+      
+    } else {
+      throw new Error('Unsupported platform');
+    }
+
+    // Reset tracking state
+    seenTracks.clear();
+    sessionCounters = createEmptyCounter();
+    nextTrackId = 0;
+    trackedObjects.clear();
+
+    console.log("🎯 Model ready for inference");
+    return true;
+    
+  } catch (err: any) {
+    console.error("❌ Failed to load ONNX model");
+    console.error("Error message:", err.message);
+    console.error("Error stack:", err.stack);
+    
+    // Helpful error messages
+    if (Platform.OS === 'android') {
+      console.error("\n📝 Android troubleshooting:");
+      console.error("  1. Verify file exists: android/app/src/main/assets/yolov8.onnx");
+      console.error("  2. Run: ./gradlew clean in android/ folder");
+      console.error("  3. Rebuild: npx react-native run-android");
+    } else {
+      console.error("\n📝 iOS troubleshooting:");
+      console.error("  1. Open Xcode and verify yolov8.onnx is in project");
+      console.error("  2. Check Build Phases → Copy Bundle Resources");
+      console.error("  3. Clean build: Product → Clean Build Folder");
+    }
+    
+    throw err;
+  }
+}
+
+/**
  * Parse class name into hierarchical attributes (matches Python backend)
  */
 function parseClassName(className: string) {
   const parts = className.toLowerCase().split('_');
   
-  // Determine crop type
   const label = parts.includes('tomato') 
     ? 'Tomato' 
     : parts.some(p => p === 'bellpepper' || p === 'pepper') 
     ? 'Bellpepper' 
     : 'Unknown';
   
-  // Determine damage status first (highest priority)
   const is_damaged = parts.includes('damaged') || parts.includes('damage');
   
-  // Determine color
   let color: string;
   if (is_damaged) {
     color = 'damaged';
@@ -73,7 +222,6 @@ function parseClassName(className: string) {
     color = 'unknown';
   }
   
-  // Determine size from class name
   let size: string;
   if (parts.includes('small')) {
     size = 'small';
@@ -89,7 +237,7 @@ function parseClassName(className: string) {
 }
 
 /**
- * Estimate size from bounding box dimensions (fallback when model doesn't provide size)
+ * Estimate size from bounding box dimensions
  */
 function estimateSizeFromBbox(
   bbox: [number, number, number, number],
@@ -118,7 +266,6 @@ function estimateSizeFromBbox(
     return 'large';
   }
   
-  // Default fallback
   if (areaPercentage < 3.0) return 'small';
   if (areaPercentage < 7.0) return 'medium';
   return 'large';
@@ -142,98 +289,73 @@ function iou(boxA: number[], boxB: number[]): number {
 }
 
 /**
- * Resolve conflicting detections (matches Python backend logic)
+ * Resolve conflicting detections
  */
 function resolveConflicts(
   detections: RawDetection[],
-  iouThreshold = 0.7,
+  iouThreshold = IOU_THRESHOLD,
   specificityBonus = SPECIFICITY_BONUS
 ): RawDetection[] {
   if (detections.length === 0) return [];
-  
-  // Group overlapping detections
+
   const groups: RawDetection[][] = [];
   const used = new Set<number>();
-  
+
   for (let i = 0; i < detections.length; i++) {
     if (used.has(i)) continue;
-    
+
     const group = [detections[i]];
     used.add(i);
-    
+
     for (let j = i + 1; j < detections.length; j++) {
       if (used.has(j)) continue;
-      
+
       if (iou(detections[i].bbox, detections[j].bbox) > iouThreshold) {
         group.push(detections[j]);
         used.add(j);
       }
     }
-    
+
     groups.push(group);
   }
-  
-  // Resolve each group
+
   const resolved: RawDetection[] = [];
-  
+
   for (const group of groups) {
-    if (group.length === 1) {
-      resolved.push(group[0]);
-      continue;
-    }
-    
-    // Apply specificity bonus
     group.forEach(det => {
-      det.effective_confidence = det.confidence;
-      if (det.size !== 'unknown') {
-        det.effective_confidence += specificityBonus;
-      }
+      det.effective_confidence = det.confidence + (det.size !== 'unknown' ? specificityBonus : 0);
     });
-    
-    // Sort by effective confidence
+
     group.sort((a, b) => (b.effective_confidence || 0) - (a.effective_confidence || 0));
-    
     const best = { ...group[0] };
-    
-    // Apply hierarchical logic
-    
-    // 1. If ANY detection shows damage, it's damaged
+
+    // Merge damaged flag
     if (group.some(d => d.is_damaged)) {
       best.is_damaged = true;
       best.color = 'damaged';
     }
-    
-    // 2. Inherit size from other detections if best doesn't have it
+
+    // Resolve unknown sizes
     if (best.size === 'unknown') {
-      const sizesWithConf = group
-        .filter(d => d.size !== 'unknown')
-        .map(d => ({ size: d.size, conf: d.effective_confidence || 0 }));
-      
+      const sizesWithConf = group.filter(d => d.size !== 'unknown');
       if (sizesWithConf.length > 0) {
         best.size = sizesWithConf.reduce((max, curr) => 
-          curr.conf > max.conf ? curr : max
+          (curr.effective_confidence || 0) > (max.effective_confidence || 0) ? curr : max
         ).size;
       }
     }
-    
-    // 3. Aggregate color info if not damaged
+
+    // Resolve colors
     if (!best.is_damaged) {
-      const colors = group
-        .filter(d => d.color !== 'unknown' && d.color !== 'damaged')
-        .map(d => ({ color: d.color, conf: d.effective_confidence || 0 }));
-      
+      const colors = group.filter(d => d.color !== 'unknown' && d.color !== 'damaged');
       if (colors.length > 0) {
-        const potentialColor = colors.reduce((max, curr) => 
-          curr.conf > max.conf ? curr : max
+        best.color = colors.reduce((max, curr) => 
+          (curr.effective_confidence || 0) > (max.effective_confidence || 0) ? curr : max
         ).color;
-        
-        if (potentialColor !== best.color) {
-          best.color = potentialColor;
-        }
       }
     }
-    
-    // 4. Update class name to reflect resolved attributes
+
+    // Construct class name
     if (best.is_damaged) {
       best.class = `${best.label.toLowerCase()}_${best.color}_damaged`;
     } else if (best.size !== 'unknown') {
@@ -241,35 +363,32 @@ function resolveConflicts(
     } else {
       best.class = `${best.label.toLowerCase()}_${best.color}`;
     }
-    
-    // Clean up temporary field
-    delete best.effective_confidence;
-    
+
     resolved.push(best);
   }
-  
-  return resolved;
+
+  // Final filter by confidence
+  return resolved.filter(det => (det.effective_confidence || 0) >= CONF_THRESHOLD);
 }
 
+
 /**
- * Simple object tracking by spatial proximity (basic ByteTrack approximation)
+ * Simple object tracking
  */
 const trackedObjects: Map<string, { bbox: number[], lastSeen: number }> = new Map();
 
 function assignTrackId(bbox: number[]): string {
   const now = Date.now();
-  const TRACK_TIMEOUT = 2000; // 2 seconds
+  const TRACK_TIMEOUT = 2000;
   
-  // Remove stale tracks
   for (const [id, track] of trackedObjects.entries()) {
     if (now - track.lastSeen > TRACK_TIMEOUT) {
       trackedObjects.delete(id);
     }
   }
   
-  // Find matching track
   let bestMatch: string | null = null;
-  let bestIou = 0.3; // Minimum IoU threshold
+  let bestIou = 0.3;
   
   for (const [id, track] of trackedObjects.entries()) {
     const iouScore = iou(bbox, track.bbox);
@@ -284,122 +403,58 @@ function assignTrackId(bbox: number[]): string {
     return bestMatch;
   }
   
-  // Create new track
   const newId = `track_${nextTrackId++}`;
   trackedObjects.set(newId, { bbox, lastSeen: now });
   return newId;
 }
 
-/**
- * Convert JPEG base64 to tensor
- */
-export function jpegBase64ToTensor(base64: string, width: number, height: number): Float32Array {
-  const raw = Buffer.from(base64, 'base64');
-  const decoded = decodeJpegBase64(raw);
-  const data = new Float32Array(width * height * 3);
 
-  for (let i = 0; i < width * height; i++) {
-    data[i * 3 + 0] = decoded.data[i * 4 + 0] / 255; // R
-    data[i * 3 + 1] = decoded.data[i * 4 + 1] / 255; // G
-    data[i * 3 + 2] = decoded.data[i * 4 + 2] / 255; // B
+/**
+ * Convert JPEG base64 to Float32Array tensor (NO Buffer! Works on Android/iOS)
+ */
+export function jpegBase64ToTensor(base64: string, width = 320, height = 320): Float32Array {
+  const clean = base64.includes(',') ? base64.split(',')[1] : base64;
+  const binary = atob(clean);
+  const data = new Float32Array(width * height * 3);
+  let idx = 0;
+
+  for (let i = 0; i < binary.length && idx < data.length; i += 4) {
+    data[idx++] = binary.charCodeAt(i) / 255;
+    data[idx++] = binary.charCodeAt(i + 1) / 255;
+    data[idx++] = binary.charCodeAt(i + 2) / 255;
   }
 
   return data;
 }
 
 /**
- * Load the ONNX fallback model
- * 
- * IMPORTANT: Place your model file in one of these locations:
- * - Android: android/app/src/main/assets/models/yolov8n_fallback.onnx
- * - iOS: Add to Xcode project (Copy Bundle Resources)
- */
-export async function loadFallbackModel() {
-  try {
-    // Determine the model path based on platform
-    let modelPath: string;
-    
-    if (RNFS.exists) {
-      // For Android, the model should be in assets folder
-      // For iOS, it should be in the bundle
-      const androidPath = `${RNFS.MainBundlePath}/models/yolov8.onnx`;
-      const iosPath = `${RNFS.MainBundlePath}/yolov8.onnx`;
-      
-      // Check which path exists
-      const androidExists = await RNFS.exists(androidPath);
-      const iosExists = await RNFS.exists(iosPath);
-      
-      if (androidExists) {
-        modelPath = androidPath;
-      } else if (iosExists) {
-        modelPath = iosPath;
-      } else {
-        // Try common alternative paths
-        const altPath = `../assets/yolov8.onnx`;
-        const altExists = await RNFS.exists(altPath);
-        
-        if (altExists) {
-          modelPath = altPath;
-        } else {
-          throw new Error(
-            `Model not found. Tried:\n- ${androidPath}\n- ${iosPath}\n- ${altPath}\n\n` +
-            'Please ensure yolov8.onnx is in the correct location.'
-          );
-        }
-      }
-    } else {
-      throw new Error('RNFS not available');
-    }
-    
-    console.log(`📦 Loading model from: ${modelPath}`);
-    
-    session = await ort.InferenceSession.create(modelPath);
-    console.log("✅ Fallback model loaded successfully");
-    
-    // Reset tracking state
-    seenTracks = new Set();
-    sessionCounters = createEmptyCounter();
-    nextTrackId = 0;
-    trackedObjects.clear();
-  } catch (error) {
-    console.error("❌ Failed to load fallback model:", error);
-    throw error;
-  }
-}
-
-/**
- * Parse YOLOv8 output (8400 predictions format)
+ * Parse YOLOv8 output
  */
 function parseYolo(
   preds: Float32Array, 
   classNames: string[],
   imageWidth: number,
-  imageHeight: number
+  imageHeight: number,
+  confThreshold = CONF_THRESHOLD
 ): RawDetection[] {
   const detections: RawDetection[] = [];
-  const numPredictions = 8400; // YOLOv8 default
   const numClasses = classNames.length;
-  
-  // YOLOv8 output format: [batch, 4 + num_classes, 8400]
-  // Transposed to [batch, 8400, 4 + num_classes]
-  
+  const numPredictions = preds.length / (4 + numClasses);
+
   for (let i = 0; i < numPredictions; i++) {
-    // Get bbox coordinates (center format)
     const cx = preds[i * (4 + numClasses) + 0] * imageWidth;
     const cy = preds[i * (4 + numClasses) + 1] * imageHeight;
     const w = preds[i * (4 + numClasses) + 2] * imageWidth;
     const h = preds[i * (4 + numClasses) + 3] * imageHeight;
-    
-    // Convert to xyxy format
+
     const x1 = cx - w / 2;
     const y1 = cy - h / 2;
     const x2 = cx + w / 2;
     const y2 = cy + h / 2;
-    
-    // Get class scores
+
     let maxScore = 0;
     let maxClassId = 0;
-    
+
     for (let c = 0; c < numClasses; c++) {
       const score = preds[i * (4 + numClasses) + 4 + c];
       if (score > maxScore) {
@@ -407,12 +462,12 @@ function parseYolo(
         maxClassId = c;
       }
     }
-    
-    if (maxScore < CONF_THRESHOLD) continue;
-    
+
+    if (maxScore < confThreshold) continue; // Filter low-confidence early
+
     const className = classNames[maxClassId] || 'unknown';
     const { label, color, size, is_damaged } = parseClassName(className);
-    
+
     detections.push({
       bbox: [x1, y1, x2, y2],
       class: className,
@@ -423,16 +478,19 @@ function parseYolo(
       is_damaged,
     });
   }
-  
+
   return detections;
 }
 
+
 /**
- * Run local ONNX inference on an image URI
+ * Run local ONNX inference
  */
 export async function runLocalModel(
-  imageUri: string, 
-  classNames: string[]
+  imageUri: string,
+  classNames: string[],
+  originalWidth = 640,  
+  originalHeight = 480
 ): Promise<{ detections: Detection[], counters: CounterData, uniqueObjects: number }> {
   if (!session) {
     throw new Error('Model not loaded. Call loadFallbackModel() first.');
@@ -441,37 +499,64 @@ export async function runLocalModel(
   try {
     const base64 = await RNFS.readFile(imageUri, 'base64');
     
-    // Get image dimensions (you may need to adjust based on your preprocessing)
-    const MODEL_WIDTH = 640;
-    const MODEL_HEIGHT = 640;
+    const MODEL_WIDTH = 320;
+    const MODEL_HEIGHT = 320;
     
+    // AUTO DETECT image size from base64 if not provided!
+    let realWidth = originalWidth;
+    let realHeight = originalHeight;
+
+    if (!realWidth || !realHeight) {
+      // Extract size from JPEG metadata (super fast & reliable)
+      const cleanBase64 = base64.includes(',') ? base64.split(',')[1] : base64;
+      const binary = atob(cleanBase64);
+      const size = getImageSizeFromJpegBinary(binary);
+      realWidth = size.width;
+      realHeight = size.height;
+    }
+
+    // Fallback if still missing (should never happen)
+    if (!realWidth || !realHeight) {
+      realWidth = 1280;
+      realHeight = 720;
+      console.warn('Image size unknown, using fallback 1280x720');
+    }
+
+    console.log(`Scaling from ${MODEL_WIDTH}x${MODEL_HEIGHT} → ${realWidth}x${realHeight}`);
+
     const tensorData = jpegBase64ToTensor(base64, MODEL_WIDTH, MODEL_HEIGHT);
     const tensor = new ort.Tensor('float32', tensorData, [1, 3, MODEL_WIDTH, MODEL_HEIGHT]);
 
     const output = await session.run({ images: tensor });
     const preds = output['output0'].data as Float32Array;
 
-    // Parse raw detections
     let rawDetections = parseYolo(preds, classNames, MODEL_WIDTH, MODEL_HEIGHT);
     
-    // Estimate size for detections without size info
+    // SAFE SCALING — NO MORE NaN!
+    const scaleX = realWidth / MODEL_WIDTH;
+    const scaleY = realHeight / MODEL_HEIGHT;
+
     rawDetections = rawDetections.map(det => {
-      if (det.size === 'unknown' && !det.is_damaged) {
-        det.size = estimateSizeFromBbox(det.bbox, MODEL_WIDTH, MODEL_HEIGHT, det.label);
-      }
-      return det;
+      const [x1, y1, x2, y2] = det.bbox;
+      return {
+        ...det,
+        bbox: [
+          x1 * scaleX,
+          y1 * scaleY,
+          x2 * scaleX,
+          y2 * scaleY,
+        ] as [number, number, number, number],
+      };
     });
     
-    // Assign track IDs
     rawDetections = rawDetections.map(det => ({
       ...det,
       track_id: assignTrackId(det.bbox),
     }));
     
-    // Resolve conflicts
     let resolved = resolveConflicts(rawDetections, 0.7, SPECIFICITY_BONUS);
+    resolved = sanitizeDetections(resolved);
     
-    // Update counters for new tracks
     resolved = resolved.map(det => {
       const isNew = !!(det.track_id && !seenTracks.has(det.track_id));
       
@@ -496,7 +581,6 @@ export async function runLocalModel(
       return { ...det, is_new: isNew };
     });
     
-    // Final NMS filtering
     const filtered: RawDetection[] = [];
     resolved.sort((a, b) => b.confidence - a.confidence);
     
@@ -506,7 +590,6 @@ export async function runLocalModel(
       }
     }
     
-    // Convert to Detection format
     const detections: Detection[] = filtered.map(det => ({
       bbox: det.bbox,
       class: det.class,
@@ -523,6 +606,36 @@ export async function runLocalModel(
     throw error;
   }
 }
+
+function getImageSizeFromJpegBinary(binaryString: string): { width: number; height: number } {
+  try {
+    // JPEG SOF markers for size
+    let i = 0;
+    while (i < binaryString.length) {
+      if (binaryString.charCodeAt(i) === 0xFF && binaryString.charCodeAt(i + 1) === 0xC0) {
+        const height = (binaryString.charCodeAt(i + 5) << 8) | binaryString.charCodeAt(i + 6);
+        const width = (binaryString.charCodeAt(i + 7) << 8) | binaryString.charCodeAt(i + 8);
+        return { width, height };
+      }
+      i++;
+    }
+  } catch (e) {
+    // ignore
+  }
+  return { width: 640, height: 640 }; // fallback
+}
+
+function sanitizeDetections(detections: RawDetection[]): RawDetection[] {
+  return detections.filter(det => {
+    const [x1, y1, x2, y2] = det.bbox;
+    if (!isFinite(x1) || !isFinite(y1) || !isFinite(x2) || !isFinite(y2)) return false;
+    if (x2 <= x1 || y2 <= y1) return false;
+    if ((det.effective_confidence || 0) < CONF_THRESHOLD) return false;
+    return true;
+  });
+}
+
+
 
 /**
  * Reset tracking state

@@ -1,9 +1,9 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Camera, useCameraDevices } from 'react-native-vision-camera';
 import RNFS from 'react-native-fs';
 import ImageResizer from 'react-native-image-resizer';
 import { Socket } from 'socket.io-client';
-import { runLocalModel, loadFallbackModel, resetLocalTracking } from './useLocalModel';
+import { runLocalModel, resetLocalTracking } from './useLocalModel';
 import { Detection, CounterData } from '../types/detection.types';
 
 const FRAME_INTERVAL = 800;
@@ -19,14 +19,21 @@ const DEFAULT_CLASS_NAMES = [
 
 interface UseCameraStreamProps {
   classNames?: string[];
+  isUsingLocalModel: boolean;
+  localModelReady: boolean;
+  onLocalDetections?: (detections: Detection[], counters: CounterData, uniqueObjects: number) => void;
 }
 
 export const useCameraStream = (
   socketRef: React.MutableRefObject<Socket | null>,
-  { classNames = DEFAULT_CLASS_NAMES }: UseCameraStreamProps = {}
+  { 
+    classNames = DEFAULT_CLASS_NAMES,
+    isUsingLocalModel,
+    localModelReady,
+    onLocalDetections
+  }: UseCameraStreamProps
 ) => {
   const [isStreaming, setIsStreaming] = useState(false);
-  const [isOnline, setIsOnline] = useState(true);
   const cameraRef = useRef<Camera>(null);
   const streamInterval = useRef<NodeJS.Timeout | null>(null);
   const isCapturingRef = useRef(false);
@@ -38,6 +45,7 @@ export const useCameraStream = (
   const [counters, setCounters] = useState<CounterData | null>(null);
   const [uniqueObjects, setUniqueObjects] = useState(0);
 
+  // Capture and process frame
   const captureAndSend = useCallback(async () => {
     if (!cameraRef.current || isCapturingRef.current) return;
 
@@ -60,18 +68,31 @@ export const useCameraStream = (
 
       const base64Image = await RNFS.readFile(resized.uri, 'base64');
       
-      // Try backend first
-      if (socketRef.current?.connected) {
+      // Decide which inference method to use
+      const shouldUseLocal = isUsingLocalModel || !socketRef.current?.connected;
+      
+      if (shouldUseLocal && localModelReady) {
+        // Use local model
+        console.log('📱 Running local inference');
+        try {
+          const result = await runLocalModel(resized.uri, classNames, 640, 480);
+          setLocalDetections(result.detections);
+          setCounters(result.counters);
+          setUniqueObjects(result.uniqueObjects);
+          
+          // Notify parent component
+          if (onLocalDetections) {
+            onLocalDetections(result.detections, result.counters, result.uniqueObjects);
+          }
+        } catch (error) {
+          console.error('❌ Local inference error:', error);
+        }
+      } else if (socketRef.current?.connected) {
+        // Use server
+        console.log('🌐 Sending frame to server');
         socketRef.current.emit('frame', base64Image);
-        setIsOnline(true);
       } else {
-        // Fallback to local model
-        console.log('📱 Running local inference (offline mode)');
-        const result = await runLocalModel(resized.uri, classNames);
-        setLocalDetections(result.detections);
-        setCounters(result.counters);
-        setUniqueObjects(result.uniqueObjects);
-        setIsOnline(false);
+        console.warn('⚠️ No inference method available');
       }
       
       // Cleanup temp file
@@ -81,21 +102,16 @@ export const useCameraStream = (
     } finally {
       isCapturingRef.current = false;
     }
-  }, [socketRef, classNames]);
+  }, [socketRef, classNames, isUsingLocalModel, localModelReady, onLocalDetections]);
 
-  const startStreaming = useCallback(async () => {
-    // Load fallback model on start
-    try {
-      await loadFallbackModel();
-    } catch (error) {
-      console.error('Failed to load fallback model:', error);
-    }
-    
+  const startStreaming = useCallback(() => {
+    console.log('▶️ Starting camera stream');
     setIsStreaming(true);
     streamInterval.current = setInterval(captureAndSend, FRAME_INTERVAL);
   }, [captureAndSend]);
 
   const stopStreaming = useCallback(() => {
+    console.log('⏹️ Stopping camera stream');
     if (streamInterval.current) {
       clearInterval(streamInterval.current);
       streamInterval.current = null;
@@ -112,18 +128,25 @@ export const useCameraStream = (
   }, [isStreaming, startStreaming, stopStreaming]);
 
   const resetCounters = useCallback(() => {
-    if (socketRef.current?.connected) {
+    if (socketRef.current?.connected && !isUsingLocalModel) {
       socketRef.current.emit('reset_counters');
     } else {
       resetLocalTracking();
       setCounters(null);
       setUniqueObjects(0);
+      setLocalDetections([]);
     }
-  }, [socketRef]);
+  }, [socketRef, isUsingLocalModel]);
+
+  // Auto-switch logic when mode changes
+  useEffect(() => {
+    if (isStreaming) {
+      console.log(`🔄 Inference mode switched to: ${isUsingLocalModel ? 'LOCAL' : 'SERVER'}`);
+    }
+  }, [isUsingLocalModel, isStreaming]);
 
   return {
     isStreaming,
-    isOnline,
     toggleStreaming,
     resetCounters,
     cameraRef,
@@ -131,5 +154,6 @@ export const useCameraStream = (
     localDetections,
     counters,
     uniqueObjects,
+    isUsingLocalModel,
   };
 };

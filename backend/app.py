@@ -9,7 +9,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 model = YOLO("yolov8.pt")
 print("✅ Model loaded successfully with classes:", model.names)
 
-CONF_THRESHOLD = 0.55  # Lowered to catch size-specific detections
+CONF_THRESHOLD = 0.55 
 IOU_THRESHOLD = 0.6
 
 # Store counters and seen track IDs per client session
@@ -299,7 +299,10 @@ def handle_frame(data):
     start_time = time.time()
 
     try:
-        img_data = base64.b64decode(data.split(',')[1])
+        if ',' in data:
+            img_data = base64.b64decode(data.split(',')[1])
+        else:
+            img_data = base64.b64decode(data)
         img_array = np.frombuffer(img_data, np.uint8)
         img = cv2.imdecode(img_array, cv2.IMREAD_COLOR)
 
@@ -333,7 +336,9 @@ def handle_frame(data):
             
             track_id = None
             if box.id is not None:
-                track_id = int(box.id.cpu().numpy()[0])
+                tid = box.id.cpu().numpy()
+                if tid.size > 0:
+                    track_id = int(tid[0])
 
             label, color, size, is_damaged = parse_class_name(class_name)
             
