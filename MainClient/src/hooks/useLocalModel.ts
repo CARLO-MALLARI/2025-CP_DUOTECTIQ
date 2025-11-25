@@ -1,5 +1,6 @@
 import * as ort from 'onnxruntime-react-native';
 import RNFS from 'react-native-fs';
+import jpeg from 'jpeg-js';
 import { Platform } from 'react-native';
 import { Detection, CounterData } from '../types/detection.types';
 
@@ -10,8 +11,9 @@ let seenTracks = new Set<string>();
 let sessionCounters: CounterData = createEmptyCounter();
 let nextTrackId = 0;
 
-const CONF_THRESHOLD = 0.80;
+const CONF_THRESHOLD = 0.25; 
 const IOU_THRESHOLD = 0.6;
+const TOP_K = 1024;
 const SPECIFICITY_BONUS = 0.15;
 
 interface RawDetection {
@@ -108,13 +110,6 @@ export async function debugModelPath(): Promise<void> {
   }
 }
 
-/**
- * Load the ONNX fallback model
- * 
- * File placement:
- * - Android: android/app/src/main/assets/yolov8.onnx
- * - iOS: Add to Xcode project (Copy Bundle Resources)
- */
 export async function loadFallbackModel(): Promise<boolean> {
   try {
     let modelPath: string;
@@ -123,7 +118,6 @@ export async function loadFallbackModel(): Promise<boolean> {
      const cachePath = `${RNFS.CachesDirectoryPath}/yolov8.onnx`;
       
       try {
-        // Always copy from assets on first launch (guaranteed to work)
         const exists = await RNFS.exists(cachePath);
         if (!exists) {
           console.log('Copying yolov8.onnx from assets to cache...');
@@ -197,9 +191,6 @@ export async function loadFallbackModel(): Promise<boolean> {
   }
 }
 
-/**
- * Parse class name into hierarchical attributes (matches Python backend)
- */
 function parseClassName(className: string) {
   const parts = className.toLowerCase().split('_');
   
@@ -236,9 +227,6 @@ function parseClassName(className: string) {
   return { label, color, size, is_damaged };
 }
 
-/**
- * Estimate size from bounding box dimensions
- */
 function estimateSizeFromBbox(
   bbox: [number, number, number, number],
   imageWidth: number,
@@ -409,69 +397,164 @@ function assignTrackId(bbox: number[]): string {
 }
 
 
-/**
- * Convert JPEG base64 to Float32Array tensor (NO Buffer! Works on Android/iOS)
- */
-export function jpegBase64ToTensor(base64: string, width = 320, height = 320): Float32Array {
+export function jpegBase64ToTensorCHW(base64: string, targetW: number, targetH: number): Float32Array {
   const clean = base64.includes(',') ? base64.split(',')[1] : base64;
-  const binary = atob(clean);
-  const data = new Float32Array(width * height * 3);
-  let idx = 0;
 
-  for (let i = 0; i < binary.length && idx < data.length; i += 4) {
-    data[idx++] = binary.charCodeAt(i) / 255;
-    data[idx++] = binary.charCodeAt(i + 1) / 255;
-    data[idx++] = binary.charCodeAt(i + 2) / 255;
+  let binary = '';
+  try {
+    binary = atob(clean);
+  } catch (e) {
+    const buff = Buffer.from(clean, 'base64');
+    binary = Array.prototype.map.call(buff, (ch: any) => String.fromCharCode(ch)).join('');
+  }
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary.charCodeAt(i);
   }
 
-  return data;
+  // Decode JPEG to raw pixels (RGBA)
+  const decoded = jpeg.decode(bytes, { useTArray: true });
+  if (decoded.width !== targetW || decoded.height !== targetH) {
+    console.warn(
+      `Decoded dimensions ${decoded.width}x${decoded.height} differ from target ${targetW}x${targetH}. ` +
+      `Prefer resizing to ${targetW}x${targetH} before inference for correct coordinates.`
+    );
+  }
+
+  const w = targetW;
+  const h = targetH;
+  const pixels = decoded.data; // RGBA
+  const out = new Float32Array(3 * w * h);
+  let px = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const r = pixels[px++] / 255;
+      const g = pixels[px++] / 255;
+      const b = pixels[px++] / 255;
+      px++; // skip alpha
+      const idx = y * w + x;
+      out[0 * (w * h) + idx] = r;
+      out[1 * (w * h) + idx] = g;
+      out[2 * (w * h) + idx] = b;
+    }
+  }
+  return out;
+}
+
+/* -------------------- Utilities (sigmoid, NMS) -------------------- */
+function sigmoid(x: number) {
+  return 1 / (1 + Math.exp(-x));
+}
+
+function boxIoU(boxA: number[], boxB: number[]) {
+  const xA = Math.max(boxA[0], boxB[0]);
+  const yA = Math.max(boxA[1], boxB[1]);
+  const xB = Math.min(boxA[2], boxB[2]);
+  const yB = Math.min(boxA[3], boxB[3]);
+  const interW = Math.max(0, xB - xA);
+  const interH = Math.max(0, yB - yA);
+  const interArea = interW * interH;
+  const areaA = Math.max(0, (boxA[2] - boxA[0])) * Math.max(0, (boxA[3] - boxA[1]));
+  const areaB = Math.max(0, (boxB[2] - boxB[0])) * Math.max(0, (boxB[3] - boxB[1]));
+  const union = areaA + areaB - interArea;
+  return union > 0 ? interArea / union : 0;
+}
+
+/**
+ * Greedy NMS
+ * boxes: [ [x1,y1,x2,y2], ... ]
+ * scores: [s, ...]
+ */
+function nonMaxSuppression(boxes: number[][], scores: number[], iouThreshold = 0.45, topK = 100) {
+  const idxs = scores.map((s, i) => [s, i] as [number, number])
+    .sort((a, b) => b[0] - a[0])
+    .slice(0, topK)
+    .map(x => x[1]);
+
+  const keep: number[] = [];
+  while (idxs.length > 0) {
+    const i = idxs.shift() as number;
+    keep.push(i);
+    for (let j = idxs.length - 1; j >= 0; j--) {
+      const idx = idxs[j];
+      if (boxIoU(boxes[i], boxes[idx]) > iouThreshold) {
+        idxs.splice(j, 1);
+      }
+    }
+  }
+  return keep;
 }
 
 /**
  * Parse YOLOv8 output
  */
-function parseYolo(
-  preds: Float32Array, 
+function parseYoloPostproc(
+  preds: Float32Array,
   classNames: string[],
-  imageWidth: number,
-  imageHeight: number,
-  confThreshold = CONF_THRESHOLD
+  modelW: number,
+  modelH: number,
+  confThreshold = CONF_THRESHOLD,
+  iouThreshold = 0.45,
 ): RawDetection[] {
   const detections: RawDetection[] = [];
   const numClasses = classNames.length;
-  const numPredictions = preds.length / (4 + numClasses);
+
+  // Determine record length: 4 (xywh) + 1 (obj) + numClasses
+  const recordLen = 4 + 1 + numClasses;
+  const numPredictions = Math.floor(preds.length / recordLen);
+
+  const boxes: number[][] = [];
+  const scores: number[] = [];
+  const classIdxs: number[] = [];
 
   for (let i = 0; i < numPredictions; i++) {
-    const cx = preds[i * (4 + numClasses) + 0] * imageWidth;
-    const cy = preds[i * (4 + numClasses) + 1] * imageHeight;
-    const w = preds[i * (4 + numClasses) + 2] * imageWidth;
-    const h = preds[i * (4 + numClasses) + 3] * imageHeight;
-
+    const base = i * recordLen;
+    const cx = preds[base + 0] * modelW;
+    const cy = preds[base + 1] * modelH;
+    const w = preds[base + 2] * modelW;
+    const h = preds[base + 3] * modelH;
     const x1 = cx - w / 2;
     const y1 = cy - h / 2;
     const x2 = cx + w / 2;
     const y2 = cy + h / 2;
 
-    let maxScore = 0;
-    let maxClassId = 0;
+    const objLogit = preds[base + 4];
+    const objProb = sigmoid(objLogit);
 
+    // find best class after sigmoid and multiply
+    let bestScore = 0;
+    let bestClass = -1;
     for (let c = 0; c < numClasses; c++) {
-      const score = preds[i * (4 + numClasses) + 4 + c];
-      if (score > maxScore) {
-        maxScore = score;
-        maxClassId = c;
+      const logit = preds[base + 5 + c];
+      const classProb = sigmoid(logit);
+      const finalScore = objProb * classProb;
+      if (finalScore > bestScore) {
+        bestScore = finalScore;
+        bestClass = c;
       }
     }
 
-    if (maxScore < confThreshold) continue; // Filter low-confidence early
+    if (bestScore >= confThreshold && bestClass >= 0) {
+      boxes.push([x1, y1, x2, y2]);
+      scores.push(bestScore);
+      classIdxs.push(bestClass);
+    }
+  }
 
-    const className = classNames[maxClassId] || 'unknown';
+  // If nothing passed threshold, return empty
+  if (boxes.length === 0) return [];
+
+  // Do class-agnostic NMS (you can do per-class NMS if preferred)
+  const keep = nonMaxSuppression(boxes, scores, iouThreshold, TOP_K);
+
+  for (const idx of keep) {
+    const className = classNames[classIdxs[idx]] || 'unknown';
     const { label, color, size, is_damaged } = parseClassName(className);
-
     detections.push({
-      bbox: [x1, y1, x2, y2],
+      bbox: boxes[idx] as [number, number, number, number],
       class: className,
-      confidence: maxScore,
+      confidence: Math.round(scores[idx] * 1000) / 1000,
       label,
       color,
       size,
@@ -483,119 +566,106 @@ function parseYolo(
 }
 
 
-/**
- * Run local ONNX inference
- */
 export async function runLocalModel(
   imageUri: string,
   classNames: string[],
-  originalWidth = 640,  
-  originalHeight = 480
+  originalWidth = 640,
+  originalHeight = 640
 ): Promise<{ detections: Detection[], counters: CounterData, uniqueObjects: number }> {
   if (!session) {
     throw new Error('Model not loaded. Call loadFallbackModel() first.');
   }
 
   try {
+    // Read resized image file to base64
     const base64 = await RNFS.readFile(imageUri, 'base64');
-    
-    const MODEL_WIDTH = 320;
-    const MODEL_HEIGHT = 320;
-    
-    // AUTO DETECT image size from base64 if not provided!
+
+    // MODEL size must match ONNX export
+    const MODEL_SIZE = 640;
+
+    // Convert base64 JPEG to CHW Float32Array
+    const chw = jpegBase64ToTensorCHW(base64, MODEL_SIZE, MODEL_SIZE);
+
+    // ONNXRuntime expects a Tensor of shape [1,3,H,W]
+    const inputTensor = new ort.Tensor('float32', chw, [1, 3, MODEL_SIZE, MODEL_SIZE]);
+
+    // Run session
+    const outputMap = await session.run({ images: inputTensor });
+
+    // If model returns multiple outputs, pick the right one
+    const outKey = Object.keys(outputMap)[0];
+    const rawOut = outputMap[outKey].data as Float32Array;
+
+    let rawDetections = parseYoloPostproc(rawOut, classNames, MODEL_SIZE, MODEL_SIZE, CONF_THRESHOLD, 0.45);
+
     let realWidth = originalWidth;
     let realHeight = originalHeight;
-
     if (!realWidth || !realHeight) {
-      // Extract size from JPEG metadata (super fast & reliable)
-      const cleanBase64 = base64.includes(',') ? base64.split(',')[1] : base64;
-      const binary = atob(cleanBase64);
+      // try to read size from jpeg metadata as fallback
+      const clean = base64.includes(',') ? base64.split(',')[1] : base64;
+      let binary = '';
+      try { binary = atob(clean); } catch (e) { /* ignore */ }
       const size = getImageSizeFromJpegBinary(binary);
       realWidth = size.width;
       realHeight = size.height;
     }
 
-    // Fallback if still missing (should never happen)
-    if (!realWidth || !realHeight) {
-      realWidth = 1280;
-      realHeight = 720;
-      console.warn('Image size unknown, using fallback 1280x720');
-    }
+   const scale = Math.min(MODEL_SIZE / realWidth, MODEL_SIZE / realHeight);
+    const padW = (MODEL_SIZE - realWidth * scale) / 2;
+    const padH = (MODEL_SIZE - realHeight * scale) / 2;
 
-    console.log(`Scaling from ${MODEL_WIDTH}x${MODEL_HEIGHT} → ${realWidth}x${realHeight}`);
-
-    const tensorData = jpegBase64ToTensor(base64, MODEL_WIDTH, MODEL_HEIGHT);
-    const tensor = new ort.Tensor('float32', tensorData, [1, 3, MODEL_WIDTH, MODEL_HEIGHT]);
-
-    const output = await session.run({ images: tensor });
-    const preds = output['output0'].data as Float32Array;
-
-    let rawDetections = parseYolo(preds, classNames, MODEL_WIDTH, MODEL_HEIGHT);
-    
-    // SAFE SCALING — NO MORE NaN!
-    const scaleX = realWidth / MODEL_WIDTH;
-    const scaleY = realHeight / MODEL_HEIGHT;
-
+    // Map back to original image coords
     rawDetections = rawDetections.map(det => {
       const [x1, y1, x2, y2] = det.bbox;
-      return {
-        ...det,
-        bbox: [
-          x1 * scaleX,
-          y1 * scaleY,
-          x2 * scaleX,
-          y2 * scaleY,
-        ] as [number, number, number, number],
-      };
+      // remove padding, then scale back
+      const nx1 = Math.max(0, (x1 - padW) / scale);
+      const ny1 = Math.max(0, (y1 - padH) / scale);
+      const nx2 = Math.min(realWidth, (x2 - padW) / scale);
+      const ny2 = Math.min(realHeight, (y2 - padH) / scale);
+      return { ...det, bbox: [nx1, ny1, nx2, ny2] as [number, number, number, number] };
     });
-    
-    rawDetections = rawDetections.map(det => ({
-      ...det,
-      track_id: assignTrackId(det.bbox),
-    }));
-    
-    let resolved = resolveConflicts(rawDetections, 0.7, SPECIFICITY_BONUS);
+
+    rawDetections = rawDetections.map(det => ({ ...det, track_id: assignTrackId(det.bbox) }));
+    let resolved = resolveConflicts(rawDetections, 0.7, 0.15);
     resolved = sanitizeDetections(resolved);
-    
+
     resolved = resolved.map(det => {
       const isNew = !!(det.track_id && !seenTracks.has(det.track_id));
-      
       if (isNew && det.track_id) {
         const { label, color, size } = det;
-        
         if (label in sessionCounters) {
           const cropData = sessionCounters[label as keyof CounterData];
-          
           if (color in cropData.total) {
             cropData.total[color as keyof typeof cropData.total]++;
           }
-          
           if (size in cropData && color in cropData[size as keyof typeof cropData]) {
             (cropData[size as keyof typeof cropData] as any)[color]++;
           }
         }
-        
         seenTracks.add(det.track_id);
       }
-      
       return { ...det, is_new: isNew };
     });
-    
+
+    // final dedup by IoU
     const filtered: RawDetection[] = [];
     resolved.sort((a, b) => b.confidence - a.confidence);
-    
     for (const det of resolved) {
       if (!filtered.some(f => iou(det.bbox, f.bbox) > IOU_THRESHOLD)) {
         filtered.push(det);
       }
     }
-    
+
     const detections: Detection[] = filtered.map(det => ({
       bbox: det.bbox,
       class: det.class,
       confidence: Math.round(det.confidence * 1000) / 1000,
     }));
-    
+
+    console.log("Output keys:", Object.keys(outputMap));
+    console.log("Output shape:", outputMap[outKey].dims);
+
+
     return {
       detections,
       counters: sessionCounters,
@@ -634,7 +704,6 @@ function sanitizeDetections(detections: RawDetection[]): RawDetection[] {
     return true;
   });
 }
-
 
 
 /**

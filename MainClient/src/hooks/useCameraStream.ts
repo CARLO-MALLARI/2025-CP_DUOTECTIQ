@@ -56,8 +56,8 @@ export const useCameraStream = (
       
       const resized = await ImageResizer.createResizedImage(
         photo.path,
-        640,
-        480,
+        640,    // force width
+        640,    // force height
         'JPEG',
         60,
         0,
