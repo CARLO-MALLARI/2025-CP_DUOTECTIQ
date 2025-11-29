@@ -139,16 +139,42 @@ export const useDetectionSocket = () => {
       // Mark as server-based detection
       setIsUsingLocalModel(false);
 
-      // Upload summary data if available
       if (data.summary && data.summary.length > 0) {
         const currentUser = auth.currentUser;
         if (!currentUser) {
           console.warn('No authenticated user, skipping Firestore upload');
           return;
         }
+        const formatted: any = {};
+
+        for (const item of data.summary) {
+          const crop = item.crop;
+          const normalizedCrop = crop.toLowerCase() === 'bellpepper' ? 'Bell Pepper' : crop;
+          const size = item.type.toLowerCase();
+          const color = (item.color || '').toLowerCase();
+
+          if (!formatted[normalizedCrop]) {
+            formatted[normalizedCrop] = {
+              small: { green: 0, red: 0 },
+              medium: { green: 0, red: 0 },
+              large: { green: 0, red: 0 },
+              total: { damaged: 0 },
+            };
+          }
+
+          if (item.status.toLowerCase() === "damaged") {
+            formatted[normalizedCrop].total.damaged += item.amount;
+          } else {
+            if (formatted[normalizedCrop][size] && color) {
+              formatted[normalizedCrop][size][color] += item.amount;
+            }
+          }
+        }
+
 
         try {
-          await uploadSummaryToFirestore(currentUser.uid, data.summary, timestamp);
+          console.log('🚀 Formatted summary before upload:', JSON.stringify(formatted, null, 2));
+          await uploadSummaryToFirestore(currentUser.uid, formatted, timestamp);
         } catch (error) {
           console.error('Failed to upload summary:', error);
         }

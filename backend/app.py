@@ -37,29 +37,26 @@ def summarize_counters(counter_data):
     for crop, data in counter_data.items():
         total = data["total"]
 
-        if total["green"] > 0:
+        for size in ["small", "medium", "large"]:
+            for color in ["green", "red"]:
+                amount = data[size][color]
+                if amount > 0:
+                    summary.append({
+                        "crop": crop,
+                        "type": size,
+                        "color": color.capitalize(),
+                        "status": "Good",
+                        "amount": amount
+                    })
+
+        # Damaged items (size-independent)
+        if data["total"]["damaged"] > 0:
             summary.append({
                 "crop": crop,
-                "type": crop,
-                "color": "Green",
-                "status": "Good",
-                "amount": total["green"]
-            })
-        if total["red"] > 0:
-            summary.append({
-                "crop": crop,
-                "type": crop,
-                "color": "Red",
-                "status": "Good",
-                "amount": total["red"]
-            })
-        if total["damaged"] > 0:
-            summary.append({
-                "crop": crop,
-                "type": crop,
+                "type": "Damaged",
                 "color": "Unknown",
                 "status": "Damaged",
-                "amount": total["damaged"]
+                "amount": data["total"]["damaged"]
             })
     return summary
 

@@ -48,7 +48,6 @@ export interface DashboardData {
   };
 }
 
-
 export const fetchDashboardData = async (
   from: string,
   to: string,
@@ -67,53 +66,68 @@ export const fetchDashboardData = async (
   );
 
   const snap = await getDocs(q);
-  const docs: CropDoc[] = snap.docs.map(d => d.data() as CropDoc);
 
   const agg: DashboardData = {
     totalPieces: 0,
     byCrop: { Tomato: 0, 'Bell Pepper': 0 },
     byCategory: {
       green: { total: 0, Tomato: 0, 'Bell Pepper': 0, small: 0, medium: 0, large: 0 },
-      red: { total: 0, Tomato: 0, 'Bell Pepper': 0, small: 0, medium: 0, large: 0 },
+      red:   { total: 0, Tomato: 0, 'Bell Pepper': 0, small: 0, medium: 0, large: 0 },
       damaged: { total: 0, Tomato: 0, 'Bell Pepper': 0 },
     },
   };
 
-  for (const doc of docs) {
-    for (const rec of doc.records) {
+  for (const doc of snap.docs) {
+    const data = doc.data() as CropDoc;
+
+    for (const rec of data.records) {
+      // normalize raw firestore data
+      const cropRaw = rec.crop?.trim().toLowerCase();
+      const color = rec.color?.trim().toLowerCase();
+      const type = rec.type?.trim().toLowerCase();
+      const status = rec.status?.trim().toLowerCase();
       const amount = rec.amount ?? 0;
-      const crop = rec.crop?.toLowerCase();
-      const color = rec.color?.toLowerCase();
-      const type = rec.type?.toLowerCase();
-      const status = rec.status?.toLowerCase();
 
-      if (sortBy !== 'All' && crop !== sortBy.toLowerCase()) continue;
+      // fix inconsistent crop naming
+      const crop =
+        cropRaw === "tomato" ? "tomato" :
+        cropRaw === "bell pepper" || cropRaw === "bellpepper" || cropRaw === "bell-pepper"
+          ? "bell pepper"
+          : null;
 
-      // total per crop
+      if (!crop) continue;
+
+      // apply sort filter correctly
+      if (sortBy !== "All") {
+        if (sortBy === "Tomato" && crop !== "tomato") continue;
+        if (sortBy === "Bell Pepper" && crop !== "bell pepper") continue;
+      }
+
+      // totals per crop
       agg.totalPieces += amount;
-      if (crop === 'tomato') agg.byCrop.Tomato += amount;
-      if (crop === 'bell pepper') agg.byCrop['Bell Pepper'] += amount;
+      if (crop === "tomato") agg.byCrop.Tomato += amount;
+      if (crop === "bell pepper") agg.byCrop["Bell Pepper"] += amount;
 
-      // damaged
-      if (status === 'damaged') {
+      // damaged category
+      if (status === "damaged") {
         agg.byCategory.damaged.total += amount;
-        if (crop === 'tomato') agg.byCategory.damaged.Tomato += amount;
-        if (crop === 'bell pepper') agg.byCategory.damaged['Bell Pepper'] += amount;
+        if (crop === "tomato") agg.byCategory.damaged.Tomato += amount;
+        if (crop === "bell pepper") agg.byCategory.damaged["Bell Pepper"] += amount;
         continue;
       }
 
-      // skip if color invalid
-      if (color !== 'green' && color !== 'red') continue;
+      // skip unknown color
+      if (color !== "green" && color !== "red") continue;
 
-      const cat = color as 'green' | 'red';
+      const cat = color as "green" | "red";
 
-      // totals per color
+      // category totals
       agg.byCategory[cat].total += amount;
-      if (crop === 'tomato') agg.byCategory[cat].Tomato += amount;
-      if (crop === 'bell pepper') agg.byCategory[cat]['Bell Pepper'] += amount;
+      if (crop === "tomato") agg.byCategory[cat].Tomato += amount;
+      if (crop === "bell pepper") agg.byCategory[cat]["Bell Pepper"] += amount;
 
-      // size-specific
-      if (['small', 'medium', 'large'].includes(type)) {
+      // size buckets
+      if (["small", "medium", "large"].includes(type)) {
         agg.byCategory[cat][type as 'small' | 'medium' | 'large'] += amount;
       }
     }

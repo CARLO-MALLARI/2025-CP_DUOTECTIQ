@@ -115,7 +115,7 @@ const DashboardScreen: React.FC = () => {
             'Bell Pepper': data.byCategory?.red?.['Bell Pepper'] ?? 0,
             small: data.byCategory?.red?.small ?? 0,
             medium: data.byCategory?.red?.medium ?? 0,
-            large: data.byCategory?.green?.large ?? 0,
+            large: data.byCategory?.red?.large ?? 0,
           },
           damaged: {
             total: data.byCategory?.damaged?.total ?? 0,
@@ -218,76 +218,86 @@ const DashboardScreen: React.FC = () => {
                 <Text style={[styles.cell, styles.headerCell]}>Total</Text>
               </View>
 
-              {/* ---------- GREEN ---------- */}
+              {/* // ---------- GREEN ----------  */}
               <TouchableOpacity style={styles.tableRow} onPress={() => toggleExpand('green')}>
                 <Text style={[styles.cell, { flex: 2 }]}>
-                  {expanded.green ? "Down Arrow" : "Right Arrow"} Not Damaged – Green
+                  {expanded.green ? "🔽" : "▶"} Not Damaged – Green
                 </Text>
                 <Text style={styles.cell}>{showTomato ? d.byCategory.green.Tomato : 0}</Text>
                 <Text style={styles.cell}>{showBell ? d.byCategory.green['Bell Pepper'] : 0}</Text>
-                <Text style={styles.cell}>{d.byCategory.green.total}</Text>
+                <Text style={styles.cell}>
+                  {showTomato && showBell 
+                    ? d.byCategory.green.total 
+                    : (showTomato ? d.byCategory.green.Tomato : (showBell ? d.byCategory.green['Bell Pepper'] : 0))
+                  }
+                </Text>
               </TouchableOpacity>
 
               {expanded.green && (
                 <>
                   <View style={styles.subRow}>
                     <Text style={[styles.subCell, { flex: 2 }]}>Small</Text>
-                    <Text style={styles.subCell}>{showTomato ? d.byCategory.green.small : 0}</Text>
-                    <Text style={styles.subCell}>{showBell ? d.byCategory.green.small : 0}</Text>
+                    <Text style={styles.subCell}>{showTomato ? (d.byCategory.green.Tomato > 0 ? d.byCategory.green.small : 0) : 0}</Text>
+                    <Text style={styles.subCell}>{showBell ? (d.byCategory.green['Bell Pepper'] > 0 ? d.byCategory.green.small : 0) : 0}</Text>
                     <Text style={styles.subCell}>-</Text>
                   </View>
                   <View style={styles.subRow}>
                     <Text style={[styles.subCell, { flex: 2 }]}>Medium</Text>
-                    <Text style={styles.subCell}>{showTomato ? d.byCategory.green.medium : 0}</Text>
-                    <Text style={styles.subCell}>{showBell ? d.byCategory.green.medium : 0}</Text>
+                    <Text style={styles.subCell}>{showTomato ? (d.byCategory.green.Tomato > 0 ? d.byCategory.green.medium : 0) : 0}</Text>
+                    <Text style={styles.subCell}>{showBell ? (d.byCategory.green['Bell Pepper'] > 0 ? d.byCategory.green.medium : 0) : 0}</Text>
                     <Text style={styles.subCell}>-</Text>
                   </View>
                   <View style={styles.subRow}>
                     <Text style={[styles.subCell, { flex: 2 }]}>Large</Text>
                     <Text style={styles.subCell}>
-                      {sortBy === 'All' || sortBy === 'Tomato' ? d.byCategory.green.large : 0}
+                      {showTomato ? (d.byCategory.green.Tomato > 0 ? d.byCategory.green.large : 0) : 0}
                     </Text>
                     <Text style={styles.subCell}>
-                      {sortBy === 'All' || sortBy === 'Bell Pepper' ? d.byCategory.green.large : 0}
+                      {showBell ? (d.byCategory.green['Bell Pepper'] > 0 ? d.byCategory.green.large : 0) : 0}
                     </Text>
-                    <Text style={styles.subCell}></Text>
+                    <Text style={styles.subCell}>-</Text>
                   </View>
                 </>
               )}
 
-              {/* ---------- RED ---------- */}
+              {/* // ---------- RED ----------  */}
               <TouchableOpacity style={styles.tableRow} onPress={() => toggleExpand('red')}>
                 <Text style={[styles.cell, { flex: 2 }]}>
-                  {expanded.red ? "Down Arrow" : "Right Arrow"} Not Damaged – Red
+                  {expanded.red ? "🔽" : "▶"} Not Damaged – Red
                 </Text>
                 <Text style={styles.cell}>{showTomato ? d.byCategory.red.Tomato : 0}</Text>
                 <Text style={styles.cell}>{showBell ? d.byCategory.red['Bell Pepper'] : 0}</Text>
-                <Text style={styles.cell}>{d.byCategory.red.total}</Text>
+                <Text style={styles.cell}>
+                  {showTomato && showBell 
+                    ? d.byCategory.red.total 
+                    : (showTomato ? d.byCategory.red.Tomato : (showBell ? d.byCategory.red['Bell Pepper'] : 0))
+                  }
+                </Text>
               </TouchableOpacity>
 
               {expanded.red && (
                 <>
                   <View style={styles.subRow}>
                     <Text style={[styles.subCell, { flex: 2 }]}>Small</Text>
-                    <Text style={styles.subCell}>{showTomato ? d.byCategory.red.small : 0}</Text>
-                    <Text style={styles.subCell}>{showBell ? d.byCategory.red.small : 0}</Text>
+                    <Text style={styles.subCell}>{showTomato ? (d.byCategory.red.Tomato > 0 ? d.byCategory.red.small : 0) : 0}</Text>
+                    <Text style={styles.subCell}>{showBell ? (d.byCategory.red['Bell Pepper'] > 0 ? d.byCategory.red.small : 0) : 0}</Text>
                     <Text style={styles.subCell}>-</Text>
                   </View>
                   <View style={styles.subRow}>
                     <Text style={[styles.subCell, { flex: 2 }]}>Medium</Text>
-                    <Text style={styles.subCell}>{showTomato ? d.byCategory.red.medium : 0}</Text>
-                    <Text style={styles.subCell}>{showBell ? d.byCategory.red.medium : 0}</Text>
+                    <Text style={styles.subCell}>{showTomato ? (d.byCategory.red.Tomato > 0 ? d.byCategory.red.medium : 0) : 0}</Text>
+                    <Text style={styles.subCell}>{showBell ? (d.byCategory.red['Bell Pepper'] > 0 ? d.byCategory.red.medium : 0) : 0}</Text>
                     <Text style={styles.subCell}>-</Text>
                   </View>
                   <View style={styles.subRow}>
                     <Text style={[styles.subCell, { flex: 2 }]}>Large</Text>
                     <Text style={styles.subCell}>
-                      {sortBy === 'All' || sortBy === 'Tomato' ? d.byCategory.red.large : 0}
+                      {showTomato ? (d.byCategory.red.Tomato > 0 ? d.byCategory.red.large : 0) : 0}
                     </Text>
                     <Text style={styles.subCell}>
-                      {sortBy === 'All' || sortBy === 'Bell Pepper' ? d.byCategory.red.large : 0}
+                      {showBell ? (d.byCategory.red['Bell Pepper'] > 0 ? d.byCategory.red.large : 0) : 0}
                     </Text>
-                    <Text style={styles.subCell}></Text>
+                    <Text style={styles.subCell}>-</Text>
                   </View>
                 </>
               )}

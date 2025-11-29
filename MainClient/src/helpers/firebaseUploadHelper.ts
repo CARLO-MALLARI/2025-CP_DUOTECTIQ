@@ -64,6 +64,8 @@ export const uploadSummaryToFirestore = async (
       },
       { merge: true }
     );
+    
+    console.log('✅ Summary uploaded to Firestore:', records);
 
     console.log('✅ Uploaded summary with sizes to Firestore');
   } catch (error: any) {
