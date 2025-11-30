@@ -9,12 +9,23 @@ import { Detection, CounterData } from '../types/detection.types';
 const FRAME_INTERVAL = 800;
 
 const DEFAULT_CLASS_NAMES = [
-  'tomato_green', 'tomato_red', 'tomato_damaged',
-  'tomato_green_small', 'tomato_green_medium', 'tomato_green_large',
-  'tomato_red_small', 'tomato_red_medium', 'tomato_red_large',
-  'bellpepper_green', 'bellpepper_red', 'bellpepper_damaged',
-  'bellpepper_green_small', 'bellpepper_green_medium', 'bellpepper_green_large',
-  'bellpepper_red_small', 'bellpepper_red_medium', 'bellpepper_red_large',
+  'bellpepper_green',           // 0
+  'bellpepper_green_damaged',   // 1
+  'bellpepper_green_large',     // 2
+  'bellpepper_green_medium',    // 3
+  'bellpepper_green_small',     // 4
+  'bellpepper_red',             // 5
+  'bellpepper_red_damaged',     // 6
+  'bellpepper_red_large',       // 7
+  'bellpepper_red_medium',      // 8
+  'bellpepper_red_small',       // 9
+  'tomato_green',               // 10
+  'tomato_green_damaged',       // 11
+  'tomato_green_large',         // 12
+  'tomato_green_medium',        // 13
+  'tomato_green_small',         // 14
+  'tomato_red',                 // 15
+  'tomato_red_damaged'          // 16
 ];
 
 interface UseCameraStreamProps {

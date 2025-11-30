@@ -9,7 +9,7 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 model = YOLO("yolov8.pt")
 print("✅ Model loaded successfully with classes:", model.names)
 
-CONF_THRESHOLD = 0.55 
+CONF_THRESHOLD = 0.7 
 IOU_THRESHOLD = 0.6
 
 # Store counters and seen track IDs per client session

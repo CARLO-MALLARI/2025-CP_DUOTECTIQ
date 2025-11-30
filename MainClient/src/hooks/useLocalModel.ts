@@ -11,7 +11,7 @@ let seenTracks = new Set<string>();
 let sessionCounters: CounterData = createEmptyCounter();
 let nextTrackId = 0;
 
-const CONF_THRESHOLD = 0.25; 
+const CONF_THRESHOLD = 0.7; 
 const IOU_THRESHOLD = 0.6;
 const TOP_K = 1024;
 const SPECIFICITY_BONUS = 0.15;
@@ -400,6 +400,7 @@ function assignTrackId(bbox: number[]): string {
 export function jpegBase64ToTensorCHW(base64: string, targetW: number, targetH: number): Float32Array {
   const clean = base64.includes(',') ? base64.split(',')[1] : base64;
 
+  // decode base64 into bytes
   let binary = '';
   try {
     binary = atob(clean);
@@ -413,32 +414,73 @@ export function jpegBase64ToTensorCHW(base64: string, targetW: number, targetH: 
     bytes[i] = binary.charCodeAt(i);
   }
 
-  // Decode JPEG to raw pixels (RGBA)
   const decoded = jpeg.decode(bytes, { useTArray: true });
-  if (decoded.width !== targetW || decoded.height !== targetH) {
-    console.warn(
-      `Decoded dimensions ${decoded.width}x${decoded.height} differ from target ${targetW}x${targetH}. ` +
-      `Prefer resizing to ${targetW}x${targetH} before inference for correct coordinates.`
-    );
+  const srcW = decoded.width;
+  const srcH = decoded.height;
+  const srcPixels = decoded.data; // RGBA
+
+  if (srcW === targetW && srcH === targetH) {
+    // Fast path - no resize, just produce CHW
+    const out = new Float32Array(3 * targetW * targetH);
+    let px = 0;
+    for (let y = 0; y < targetH; y++) {
+      for (let x = 0; x < targetW; x++) {
+        const r = srcPixels[px++] / 255;
+        const g = srcPixels[px++] / 255;
+        const b = srcPixels[px++] / 255;
+        px++; // skip alpha
+        const idx = y * targetW + x;
+        out[0 * (targetW * targetH) + idx] = r;
+        out[1 * (targetW * targetH) + idx] = g;
+        out[2 * (targetW * targetH) + idx] = b;
+      }
+    }
+    return out;
   }
 
-  const w = targetW;
-  const h = targetH;
-  const pixels = decoded.data; // RGBA
-  const out = new Float32Array(3 * w * h);
-  let px = 0;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const r = pixels[px++] / 255;
-      const g = pixels[px++] / 255;
-      const b = pixels[px++] / 255;
-      px++; // skip alpha
-      const idx = y * w + x;
-      out[0 * (w * h) + idx] = r;
-      out[1 * (w * h) + idx] = g;
-      out[2 * (w * h) + idx] = b;
+  // Letterbox/resize preserving aspect ratio (nearest-neighbor)
+  const scale = Math.min(targetW / srcW, targetH / srcH);
+  const resizeW = Math.round(srcW * scale);
+  const resizeH = Math.round(srcH * scale);
+  const padX = Math.floor((targetW - resizeW) / 2);
+  const padY = Math.floor((targetH - resizeH) / 2);
+
+  // Build resized buffer (RGBA) sized resizeW x resizeH with NN sampling
+  const resizedRGBA = new Uint8ClampedArray(resizeW * resizeH * 4);
+
+  for (let y = 0; y < resizeH; y++) {
+    const srcY = Math.min(srcH - 1, Math.floor(y / scale));
+    for (let x = 0; x < resizeW; x++) {
+      const srcX = Math.min(srcW - 1, Math.floor(x / scale));
+      const sidx = (srcY * srcW + srcX) * 4;
+      const didx = (y * resizeW + x) * 4;
+      resizedRGBA[didx] = srcPixels[sidx];
+      resizedRGBA[didx + 1] = srcPixels[sidx + 1];
+      resizedRGBA[didx + 2] = srcPixels[sidx + 2];
+      resizedRGBA[didx + 3] = srcPixels[sidx + 3];
     }
   }
+
+  // Now create final CHW float buffer with padding
+  const out = new Float32Array(3 * targetW * targetH);
+  // initialize with 0 (black) - already zeroed by Float32Array default
+
+  for (let y = 0; y < resizeH; y++) {
+    for (let x = 0; x < resizeW; x++) {
+      const srcIdx = (y * resizeW + x) * 4;
+      const r = resizedRGBA[srcIdx] / 255;
+      const g = resizedRGBA[srcIdx + 1] / 255;
+      const b = resizedRGBA[srcIdx + 2] / 255;
+      const tx = x + padX;
+      const ty = y + padY;
+      const idx = ty * targetW + tx;
+      out[0 * (targetW * targetH) + idx] = r;
+      out[1 * (targetW * targetH) + idx] = g;
+      out[2 * (targetW * targetH) + idx] = b;
+    }
+  }
+
+  console.log(`🔁 resized ${srcW}x${srcH} -> ${resizeW}x${resizeH} (pad ${padX},${padY}) -> target ${targetW}x${targetH}`);
   return out;
 }
 
@@ -494,15 +536,20 @@ function parseYoloPostproc(
   classNames: string[],
   modelW: number,
   modelH: number,
-  confThreshold = CONF_THRESHOLD,
+  confThreshold = 0.25,
   iouThreshold = 0.45,
 ): RawDetection[] {
-  const detections: RawDetection[] = [];
   const numClasses = classNames.length;
-
-  // Determine record length: 4 (xywh) + 1 (obj) + numClasses
-  const recordLen = 4 + 1 + numClasses;
+  const recordLen = 4 + numClasses;
   const numPredictions = Math.floor(preds.length / recordLen);
+
+  // Debug: show some stats about preds
+  let minV = Number.POSITIVE_INFINITY, maxV = Number.NEGATIVE_INFINITY;
+  for (let i = 0; i < Math.min(1000, preds.length); i++) {
+    minV = Math.min(minV, preds[i]);
+    maxV = Math.max(maxV, preds[i]);
+  }
+  console.log(`🔍 Parsing ${numPredictions} predictions. sample preds range ≈ [${minV.toFixed(3)}, ${maxV.toFixed(3)}]`);
 
   const boxes: number[][] = [];
   const scores: number[] = [];
@@ -510,60 +557,77 @@ function parseYoloPostproc(
 
   for (let i = 0; i < numPredictions; i++) {
     const base = i * recordLen;
-    const cx = preds[base + 0] * modelW;
-    const cy = preds[base + 1] * modelH;
-    const w = preds[base + 2] * modelW;
-    const h = preds[base + 3] * modelH;
-    const x1 = cx - w / 2;
-    const y1 = cy - h / 2;
-    const x2 = cx + w / 2;
-    const y2 = cy + h / 2;
 
-    const objLogit = preds[base + 4];
-    const objProb = sigmoid(objLogit);
+    let x1 = preds[base + 0];
+    let y1 = preds[base + 1];
+    let x2 = preds[base + 2];
+    let y2 = preds[base + 3];
 
-    // find best class after sigmoid and multiply
+    // If coords are normalized (0-1), scale them to modelW/modelH
+    // Heuristic: if any coordinate is <=1.0, treat them as normalized.
+    if (x1 <= 1.01 && y1 <= 1.01 && x2 <= 1.01 && y2 <= 1.01) {
+      x1 = x1 * modelW;
+      y1 = y1 * modelH;
+      x2 = x2 * modelW;
+      y2 = y2 * modelH;
+    }
+
+    // Strict validation
+    if (!isFinite(x1) || !isFinite(y1) || !isFinite(x2) || !isFinite(y2)) continue;
+    if (x2 <= x1 || y2 <= y1) continue;
+    if (x1 < 0 || y1 < 0 || x2 > modelW || y2 > modelH) {
+      // allow small epsilon overflow due to rounding
+      if (x1 < -1 || y1 < -1 || x2 > modelW + 1 || y2 > modelH + 1) continue;
+    }
+
+    const bboxWidth = x2 - x1;
+    const bboxHeight = y2 - y1;
+    if (bboxWidth < 3 || bboxHeight < 3) continue; // allow smaller min now
+
+    // Find best class score — apply sigmoid to each class logit
     let bestScore = 0;
     let bestClass = -1;
     for (let c = 0; c < numClasses; c++) {
-      const logit = preds[base + 5 + c];
-      const classProb = sigmoid(logit);
-      const finalScore = objProb * classProb;
-      if (finalScore > bestScore) {
-        bestScore = finalScore;
+      const raw = preds[base + 4 + c];
+      const classProb = sigmoid(raw); // <-- apply sigmoid here
+      if (classProb > bestScore) {
+        bestScore = classProb;
         bestClass = c;
       }
     }
 
-    if (bestScore >= confThreshold && bestClass >= 0) {
+    if (bestScore >= confThreshold && bestClass >= 0 && bestClass < numClasses) {
       boxes.push([x1, y1, x2, y2]);
       scores.push(bestScore);
       classIdxs.push(bestClass);
+
+      if (boxes.length <= 8) {
+        console.log(`✅ DETECTION ${boxes.length}: ${classNames[bestClass]} (${bestScore.toFixed(3)})`);
+      }
     }
   }
 
-  // If nothing passed threshold, return empty
+  console.log(`🔍 ${boxes.length} detections passed ≥${confThreshold}`);
+
   if (boxes.length === 0) return [];
 
-  // Do class-agnostic NMS (you can do per-class NMS if preferred)
-  const keep = nonMaxSuppression(boxes, scores, iouThreshold, TOP_K);
-
+  const keep = nonMaxSuppression(boxes, scores, 0.4, 100);
+  const finalDetections: RawDetection[] = [];
   for (const idx of keep) {
-    const className = classNames[classIdxs[idx]] || 'unknown';
+    const className = classNames[classIdxs[idx]];
     const { label, color, size, is_damaged } = parseClassName(className);
-    detections.push({
+    finalDetections.push({
       bbox: boxes[idx] as [number, number, number, number],
       class: className,
-      confidence: Math.round(scores[idx] * 1000) / 1000,
-      label,
-      color,
-      size,
-      is_damaged,
+      confidence: scores[idx],
+      label, color, size, is_damaged,
     });
   }
 
-  return detections;
+  console.log(`🎯 FINAL: ${finalDetections.length} detections after NMS`);
+  return finalDetections;
 }
+
 
 
 export async function runLocalModel(
@@ -596,6 +660,14 @@ export async function runLocalModel(
     const outKey = Object.keys(outputMap)[0];
     const rawOut = outputMap[outKey].data as Float32Array;
 
+    {
+      let minV = Infinity, maxV = -Infinity;
+      for (let i=0;i<Math.min(rawOut.length, 2000);i++){
+        minV = Math.min(minV, rawOut[i]);
+        maxV = Math.max(maxV, rawOut[i]);
+      }
+      console.log(`🔬 rawOut sample range: [${minV.toFixed(3)}, ${maxV.toFixed(3)}], length=${rawOut.length}`);
+    }
     let rawDetections = parseYoloPostproc(rawOut, classNames, MODEL_SIZE, MODEL_SIZE, CONF_THRESHOLD, 0.45);
 
     let realWidth = originalWidth;
@@ -610,23 +682,7 @@ export async function runLocalModel(
       realHeight = size.height;
     }
 
-   const scale = Math.min(MODEL_SIZE / realWidth, MODEL_SIZE / realHeight);
-    const padW = (MODEL_SIZE - realWidth * scale) / 2;
-    const padH = (MODEL_SIZE - realHeight * scale) / 2;
-
-    // Map back to original image coords
-    rawDetections = rawDetections.map(det => {
-      const [x1, y1, x2, y2] = det.bbox;
-      // remove padding, then scale back
-      const nx1 = Math.max(0, (x1 - padW) / scale);
-      const ny1 = Math.max(0, (y1 - padH) / scale);
-      const nx2 = Math.min(realWidth, (x2 - padW) / scale);
-      const ny2 = Math.min(realHeight, (y2 - padH) / scale);
-      return { ...det, bbox: [nx1, ny1, nx2, ny2] as [number, number, number, number] };
-    });
-
-    rawDetections = rawDetections.map(det => ({ ...det, track_id: assignTrackId(det.bbox) }));
-    let resolved = resolveConflicts(rawDetections, 0.7, 0.15);
+    let resolved = resolveConflicts(rawDetections, 0.5, 0.2);
     resolved = sanitizeDetections(resolved);
 
     resolved = resolved.map(det => {
@@ -663,8 +719,13 @@ export async function runLocalModel(
     }));
 
     console.log("Output keys:", Object.keys(outputMap));
-    console.log("Output shape:", outputMap[outKey].dims);
-
+    console.log('🔍 Model output shape:', outputMap[outKey].dims);
+    console.log('🔍 Raw detections before filtering:', rawDetections.length);
+    console.log('🔍 First few class names from model:', classNames.slice(0, 10));
+    console.log('🔍 All detections with class names:');
+    rawDetections.slice(0, 5).forEach((det, i) => {
+      console.log(`  ${i}: ${det.class} (${det.confidence})`);
+    });
 
     return {
       detections,

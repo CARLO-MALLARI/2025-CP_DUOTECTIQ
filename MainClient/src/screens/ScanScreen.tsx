@@ -128,15 +128,22 @@ const ScanScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Connection Status Banner */}
-      <ConnectionStatusBanner
-        connected={connected}
-        stale={false}
-        isLocal={isUsingLocalModel}
-        localReady={localModelReady}
-      />
+  <SafeAreaView style={styles.container}>
+    {/* Connection Status Banner */}
+    <ConnectionStatusBanner
+      connected={connected}
+      stale={false}
+      isLocal={false}
+      localReady={false}
+    />
 
+    {/* If not connected → block the inference UI */}
+    {!connected ? (
+      <View style={styles.blockerContainer}>
+        <Text style={styles.blockerText}>Not connected to server</Text>
+        <Text style={styles.blockerSubtext}>Connect to continue inference</Text>
+      </View>
+    ) : (
       <View style={styles.mainContent}>
         {/* Camera View with Detection Overlay */}
         <CameraView
@@ -146,7 +153,7 @@ const ScanScreen: React.FC = () => {
           detections={displayDetections}
           onToggleStreaming={toggleStreaming}
           onReset={handleReset}
-          isUsingLocal={isUsingLocalModel}
+          isUsingLocal={false}
         />
 
         {/* Detection Legend */}
@@ -158,17 +165,21 @@ const ScanScreen: React.FC = () => {
             <Text style={styles.title}>Classification Counter</Text>
             {isStreaming && (
               <View style={styles.modeIndicator}>
-                <View style={[
-                  styles.modeDot, 
-                  { backgroundColor: isUsingLocalModel ? '#FF9800' : '#4CAF50' }
-                ]} />
+                <View
+                  style={[
+                    styles.modeDot,
+                    { backgroundColor: isUsingLocalModel ? '#FF9800' : '#4CAF50' },
+                  ]}
+                />
                 <Text style={styles.modeText}>
                   {isUsingLocalModel ? 'Local' : 'Server'}
                 </Text>
               </View>
             )}
           </View>
+
           <ClassificationCounter data={counterData} />
+
           {uniqueObjects > 0 && isUsingLocalModel && (
             <Text style={styles.uniqueObjectsText}>
               Unique Objects Tracked: {uniqueObjects}
@@ -176,10 +187,12 @@ const ScanScreen: React.FC = () => {
           )}
         </View>
       </View>
+    )}
 
-      <BottomNavBar />
-    </SafeAreaView>
-  );
+    <BottomNavBar />
+  </SafeAreaView>
+);
+
 };
 
 const styles = StyleSheet.create({
@@ -191,6 +204,22 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'space-evenly',
+  },
+  blockerContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  blockerText: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  blockerSubtext: {
+    fontSize: 16,
+    color: '#777',
+    textAlign: 'center',
   },
   centered: { 
     flex: 1,
