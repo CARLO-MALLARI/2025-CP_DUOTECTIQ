@@ -1,7 +1,6 @@
-
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
-import { format } from 'date-fns';
+import {collection, query, where, orderBy, getDocs} from 'firebase/firestore';
+import {auth, db} from '../lib/firebase';
+import {format} from 'date-fns';
 
 export interface HistoryRecord {
   id: string;
@@ -17,7 +16,7 @@ export interface HistoryRecord {
 interface CropDoc {
   userId: string;
   date: string;
-  lastUpdated: string;  // ISO string
+  lastUpdated: string; // ISO string
   records: Array<{
     crop: string;
     color: string;
@@ -32,7 +31,7 @@ interface CropDoc {
 
 export const fetchHistory = async (
   isoDate: string, // "2025-11-03"
-  sortBy: 'All' | 'Tomato' | 'BellPepper'
+  sortBy: 'All' | 'Tomato' | 'BellPepper',
 ): Promise<HistoryRecord[]> => {
   const user = auth.currentUser;
   if (!user) throw new Error('User not authenticated');
@@ -44,7 +43,7 @@ export const fetchHistory = async (
     col,
     where('userId', '==', user.uid),
     where('date', '==', isoDate),
-    orderBy('lastUpdated', 'asc')  // ← this is what needs the index
+    orderBy('lastUpdated', 'asc'), // ← this is what needs the index
   );
 
   const snap = await getDocs(q);
@@ -52,7 +51,7 @@ export const fetchHistory = async (
 
   for (const doc of snap.docs) {
     const data = doc.data() as CropDoc;
-    
+
     for (const rec of data.records ?? []) {
       if (sortBy !== 'All' && rec.crop !== sortBy) continue;
 
@@ -60,9 +59,10 @@ export const fetchHistory = async (
       const cropDisplay = rec.crop === 'Bellpepper' ? 'Bell Pepper' : rec.crop;
 
       // Map size: your `type` field contains the crop name → use it as size
-      const sizeDisplay = rec.type === 'Bellpepper'
-        ? 'Bell Pepper'
-        : rec.type.charAt(0).toUpperCase() + rec.type.slice(1).toLowerCase();
+      const sizeDisplay =
+        rec.type === 'Bellpepper'
+          ? 'Bell Pepper'
+          : rec.type.charAt(0).toUpperCase() + rec.type.slice(1).toLowerCase();
 
       const recordTime = rec.time;
       const docTime = data.lastUpdated
@@ -72,8 +72,8 @@ export const fetchHistory = async (
       rows.push({
         id: `${doc.id}-${rows.length}`,
         crop: cropDisplay,
-        color: rec.color === 'Green' ? 'Green' : 'Red',
-        condition: rec.status === 'Good' ? 'Not Damaged' : 'Damaged',
+        color: rec.color === 'green' ? 'Green' : 'Red',
+        condition: rec.status === 'good' ? 'Not Damaged' : 'Damaged',
         size: sizeDisplay,
         basket: rec.basket ?? '',
         time: recordTime || docTime,

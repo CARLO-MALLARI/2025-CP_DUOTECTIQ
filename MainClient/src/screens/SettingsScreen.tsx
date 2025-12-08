@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,7 @@ import {
   deleteUser,
   signOut,
 } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import {auth} from '../lib/firebase';
 import Constants from 'expo-constants';
 
 const SettingsScreen = () => {
@@ -49,7 +49,8 @@ const SettingsScreen = () => {
 
   // 🔄 Save URL
   const handleSaveUrl = async () => {
-    if (!serverUrl.trim()) return Alert.alert('Error', 'Please enter a valid URL.');
+    if (!serverUrl.trim())
+      return Alert.alert('Error', 'Please enter a valid URL.');
     await AsyncStorage.setItem('server_url', serverUrl.trim());
     Alert.alert('Saved', `Server URL set to: ${serverUrl}`);
   };
@@ -68,14 +69,18 @@ const SettingsScreen = () => {
 
   // 🔄 Change password
   const handleChangePassword = async () => {
-    if (!auth.currentUser?.email) return Alert.alert('Error', 'No logged-in user.');
+    if (!auth.currentUser?.email)
+      return Alert.alert('Error', 'No logged-in user.');
     if (!currentPassword || !newPassword || !confirmPassword)
       return Alert.alert('Error', 'Please fill in all fields.');
     if (newPassword !== confirmPassword)
       return Alert.alert('Error', 'New passwords do not match.');
 
     try {
-      const credential = EmailAuthProvider.credential(auth.currentUser.email, currentPassword);
+      const credential = EmailAuthProvider.credential(
+        auth.currentUser.email,
+        currentPassword,
+      );
       await reauthenticateWithCredential(auth.currentUser, credential);
       await updatePassword(auth.currentUser, newPassword);
       Alert.alert('Success', 'Password updated successfully.');
@@ -107,7 +112,7 @@ const SettingsScreen = () => {
       'Delete Account',
       'Are you sure you want to permanently delete your account?',
       [
-        { text: 'Cancel', style: 'cancel' },
+        {text: 'Cancel', style: 'cancel'},
         {
           text: 'Yes, Delete',
           style: 'destructive',
@@ -123,7 +128,7 @@ const SettingsScreen = () => {
             }
           },
         },
-      ]
+      ],
     );
   };
 
@@ -153,7 +158,10 @@ const SettingsScreen = () => {
     const newTheme = !isDarkMode;
     setIsDarkMode(newTheme);
     await AsyncStorage.setItem('theme', newTheme ? 'dark' : 'light');
-    Alert.alert('Theme Changed', newTheme ? 'Dark mode enabled.' : 'Light mode enabled.');
+    Alert.alert(
+      'Theme Changed',
+      newTheme ? 'Dark mode enabled.' : 'Light mode enabled.',
+    );
   };
 
   return (
@@ -206,7 +214,9 @@ const SettingsScreen = () => {
           />
         </View>
 
-        <TouchableOpacity style={styles.primaryButton} onPress={handleChangePassword}>
+        <TouchableOpacity
+          style={styles.primaryButton}
+          onPress={handleChangePassword}>
           <Text style={styles.primaryButtonText}>Update Password</Text>
         </TouchableOpacity>
 
@@ -215,11 +225,11 @@ const SettingsScreen = () => {
         </TouchableOpacity>
 
         <TouchableOpacity onPress={handleDeleteAccount}>
-          <Text style={[styles.linkText, { color: 'red' }]}>Delete Account</Text>
+          <Text style={[styles.linkText, {color: 'red'}]}>Delete Account</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={handleLogout}>
-          <Text style={[styles.linkText, { color: '#007AFF' }]}>Logout</Text>
+          <Text style={[styles.linkText, {color: '#007AFF'}]}>Logout</Text>
         </TouchableOpacity>
       </View>
 
@@ -227,12 +237,14 @@ const SettingsScreen = () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>App Data</Text>
 
-        <TouchableOpacity style={styles.secondaryButton} onPress={handleClearData}>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={handleClearData}>
           <Text style={styles.secondaryButtonText}>Clear Local Data</Text>
         </TouchableOpacity>
 
         {/* 🌐 URL CONFIGURATION */}
-        <View style={{ marginTop: 20 }}>
+        <View style={{marginTop: 20}}>
           <Text style={styles.sectionTitle}>Server URL</Text>
           <TextInput
             style={styles.input}
@@ -243,16 +255,20 @@ const SettingsScreen = () => {
             autoCapitalize="none"
           />
 
-          <TouchableOpacity style={styles.primaryButton} onPress={handleSaveUrl}>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={handleSaveUrl}>
             <Text style={styles.primaryButtonText}>Save URL</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.secondaryButton} onPress={handleResetUrl}>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={handleResetUrl}>
             <Text style={styles.secondaryButtonText}>Reset to Default</Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={handleOpenUrl}>
-            <Text style={[styles.linkText, { color: '#007AFF' }]}>Open URL</Text>
+            <Text style={[styles.linkText, {color: '#007AFF'}]}>Open URL</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -264,26 +280,44 @@ const SettingsScreen = () => {
           App Version: {Constants.expoConfig?.version || '1.0.0'}
         </Text>
 
-        <TouchableOpacity onPress={() => Linking.openURL('mailto:support@gymbuddy.app')}>
+        <TouchableOpacity
+          onPress={() => Linking.openURL('mailto:support@gymbuddy.app')}>
           <Text style={styles.linkText}>Contact Support</Text>
         </TouchableOpacity>
 
         {/* 🌐 Social Media Links */}
         <View style={styles.socialRow}>
-          <TouchableOpacity onPress={() => Linking.openURL('https://facebook.com')}>
-            <Ionicons name="logo-facebook" size={28} color="#1877F2" style={styles.socialIcon} />
+          <TouchableOpacity
+            onPress={() => Linking.openURL('https://facebook.com')}>
+            <Ionicons
+              name="logo-facebook"
+              size={28}
+              color="#1877F2"
+              style={styles.socialIcon}
+            />
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => Linking.openURL('https://instagram.com')}>
-            <Ionicons name="logo-instagram" size={28} color="#E1306C" style={styles.socialIcon} />
+          <TouchableOpacity
+            onPress={() => Linking.openURL('https://instagram.com')}>
+            <Ionicons
+              name="logo-instagram"
+              size={28}
+              color="#E1306C"
+              style={styles.socialIcon}
+            />
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => Linking.openURL('https://twitter.com')}>
-            <Ionicons name="logo-twitter" size={28} color="#1DA1F2" style={styles.socialIcon} />
+          <TouchableOpacity
+            onPress={() => Linking.openURL('https://twitter.com')}>
+            <Ionicons
+              name="logo-twitter"
+              size={28}
+              color="#1DA1F2"
+              style={styles.socialIcon}
+            />
           </TouchableOpacity>
         </View>
       </View>
-
     </ScrollView>
   );
 };
@@ -333,7 +367,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 12,
     top: '50%',
-    transform: [{ translateY: -11 }],
+    transform: [{translateY: -11}],
   },
   primaryButton: {
     backgroundColor: '#007AFF',
