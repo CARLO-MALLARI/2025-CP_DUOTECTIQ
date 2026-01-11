@@ -2,11 +2,20 @@ from flask import Flask, request
 from flask_socketio import SocketIO, emit
 from ultralytics import YOLO
 import cv2, base64, numpy as np, time
+import torch
 
 app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode="eventlet"
+)
 
-model = YOLO("yolov8.pt")
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model = YOLO("yolov8.pt").to(device)
+
+print("🔥 Using device:", device)
 print("✅ Model loaded successfully with classes:", model.names)
 
 CONF_THRESHOLD = 0.7 
@@ -421,4 +430,10 @@ def handle_reset():
     print(f"🔄 Counters reset for session {sid}")
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=False)
+    socketio.run(
+        app,
+        host='0.0.0.0',
+        port=5000,
+        debug=False,
+        allow_unsafe_werkzeug=True
+    )
