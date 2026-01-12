@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
-import Svg, { Defs, LinearGradient, Path, Stop } from 'react-native-svg';
+import Svg, {Defs, LinearGradient, Path, Stop} from 'react-native-svg';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import {
   signInWithEmailAndPassword,
@@ -19,18 +19,21 @@ import {
   FacebookAuthProvider,
   signOut,
 } from 'firebase/auth';
-import { auth } from '../../lib/firebase';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { AuthStackParamList } from '../../types/navigation';
+import {auth} from '../../lib/firebase';
+import {useNavigation} from '@react-navigation/native';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {AuthStackParamList} from '../../types/navigation';
 import LoadingOverlay from '../../components/LoadingOverlay';
-import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
-import { LoginManager, AccessToken } from 'react-native-fbsdk-next';
-import { RootStackParamList } from '../../navigation/AppNavigator';
+import {
+  GoogleSignin,
+  statusCodes,
+} from '@react-native-google-signin/google-signin';
+import {LoginManager, AccessToken} from 'react-native-fbsdk-next';
+import {RootStackParamList} from '../../navigation/AppNavigator';
 
 type AuthNav = NativeStackNavigationProp<AuthStackParamList>;
 type RootStackNav = NativeStackNavigationProp<RootStackParamList>;
-const { width, height } = Dimensions.get('window');
+const {width, height} = Dimensions.get('window');
 
 const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -81,7 +84,7 @@ const LoginScreen: React.FC = () => {
         console.warn('GoogleSignin.revokeAccess() failed:', e);
       }
 
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      await GoogleSignin.hasPlayServices({showPlayServicesUpdateDialog: true});
       const userInfo = await GoogleSignin.signIn();
       const tokens = await GoogleSignin.getTokens();
 
@@ -105,7 +108,10 @@ const LoginScreen: React.FC = () => {
   const handleFacebookSignIn = async () => {
     setLoading(true);
     try {
-      const result = await LoginManager.logInWithPermissions(['public_profile', 'email']);
+      const result = await LoginManager.logInWithPermissions([
+        'public_profile',
+        'email',
+      ]);
       if (result.isCancelled) {
         Alert.alert('Cancelled', 'Login cancelled');
         setLoading(false);
@@ -115,13 +121,18 @@ const LoginScreen: React.FC = () => {
       const data = await AccessToken.getCurrentAccessToken();
       if (!data) throw new Error('Failed to get access token');
 
-      const facebookCredential = FacebookAuthProvider.credential(data.accessToken);
+      const facebookCredential = FacebookAuthProvider.credential(
+        data.accessToken,
+      );
       await signInWithCredential(auth, facebookCredential);
       Alert.alert('Success', 'Logged in with Facebook!');
       rootnavigation.navigate('Scan');
     } catch (error: any) {
       console.error('Facebook Sign-In Error:', error);
-      Alert.alert('Facebook Sign-In Error', error.message || 'Failed to sign in');
+      Alert.alert(
+        'Facebook Sign-In Error',
+        error.message || 'Failed to sign in',
+      );
     } finally {
       setLoading(false);
     }
@@ -138,7 +149,10 @@ const LoginScreen: React.FC = () => {
           />
           <View style={styles.overlay} />
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <Svg height={height * 0.4} width={width} style={{ position: 'absolute' }}>
+            <Svg
+              height={height * 0.4}
+              width={width}
+              style={{position: 'absolute'}}>
               <Defs>
                 <LinearGradient id="waveGrad" x1="0" y1="0" x2="0" y2="1">
                   <Stop offset="0" stopColor="rgba(217,217,217,1)" />
@@ -148,7 +162,9 @@ const LoginScreen: React.FC = () => {
               </Defs>
               <Path
                 d={`M0 ${height * 0.18}
-                  Q${width * 0.25} ${height * 0.10} ${width * 0.5} ${height * 0.2}
+                  Q${width * 0.25} ${height * 0.1} ${width * 0.5} ${
+                  height * 0.2
+                }
                   T${width} ${height * 0.25}
                   Q${width * 1} ${height * 0.5} ${width} ${height * 0.75}
                   L${width} ${height}
@@ -183,7 +199,7 @@ const LoginScreen: React.FC = () => {
           <View style={styles.inputContainer}>
             <Text style={styles.icon}>🔒</Text>
             <TextInput
-              style={[styles.input, { paddingRight: 35 }]}
+              style={[styles.input, {paddingRight: 35}]}
               placeholder="Password"
               placeholderTextColor="#555"
               secureTextEntry={!showPassword}
@@ -192,8 +208,7 @@ const LoginScreen: React.FC = () => {
             />
             <TouchableOpacity
               style={styles.eyeButton}
-              onPress={() => setShowPassword(!showPassword)}
-            >
+              onPress={() => setShowPassword(!showPassword)}>
               <Ionicons
                 name={showPassword ? 'eye-off' : 'eye'}
                 size={22}
@@ -204,19 +219,14 @@ const LoginScreen: React.FC = () => {
 
           {/* Social Buttons */}
           <View style={styles.socialContainer}>
-            <TouchableOpacity style={styles.socialButton} onPress={handleGoogleSignIn}>
+            <TouchableOpacity
+              style={styles.socialButton}
+              onPress={handleGoogleSignIn}>
               <Image
-                source={{ uri: 'https://www.google.com/favicon.ico' }}
+                source={{uri: 'https://www.google.com/favicon.ico'}}
                 style={styles.socialIcon}
               />
               <Text style={styles.socialText}>Google</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.socialButton} onPress={handleFacebookSignIn}>
-              <Image
-                source={{ uri: 'https://www.facebook.com/favicon.ico' }}
-                style={styles.socialIcon}
-              />
-              <Text style={styles.socialText}>Facebook</Text>
             </TouchableOpacity>
           </View>
 
@@ -319,7 +329,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 10,
-    width: '48%',
+    width: '100%',
     justifyContent: 'center',
   },
   socialIcon: {

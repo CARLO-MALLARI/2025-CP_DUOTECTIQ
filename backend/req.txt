@@ -1,0 +1,8 @@
+flask
+flask-socketio
+eventlet
+ultralytics
+opencv-python-headless
+numpy
+torch
+torchvision

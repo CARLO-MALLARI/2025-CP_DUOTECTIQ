@@ -1,8 +1,8 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Camera, CameraDevice } from 'react-native-vision-camera';
-import { Detection } from '../types/detection.types';
-import { DetectionOverlay } from './DetectionOverlay';
+import React, {useState, useRef, useEffect} from 'react';
+import {View, Text, TouchableOpacity, StyleSheet, Animated} from 'react-native';
+import {Camera, CameraDevice} from 'react-native-vision-camera';
+import {Detection} from '../types/detection.types';
+import {DetectionOverlay} from './DetectionOverlay';
 
 interface CameraViewProps {
   cameraRef: React.RefObject<Camera>;
@@ -24,24 +24,45 @@ export const CameraView: React.FC<CameraViewProps> = ({
   isUsingLocal = false,
 }) => {
   const [cameraReady, setCameraReady] = useState(false);
-  const cameraDimensionsRef = useRef({ width: 0, height: 0 });
+  const cameraDimensionsRef = useRef({width: 0, height: 0});
+  const blinkOpacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (isStreaming && detections.length === 0) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(blinkOpacity, {
+            toValue: 0,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(blinkOpacity, {
+            toValue: 1,
+            duration: 1200,
+            useNativeDriver: true,
+          }),
+        ]),
+      ).start();
+    } else {
+      blinkOpacity.stopAnimation();
+      blinkOpacity.setValue(1); // reset when detection appears
+    }
+  }, [isStreaming, detections.length]);
 
   return (
     <View
       style={styles.cameraContainer}
-      onLayout={(e) => {
-        const { width, height } = e.nativeEvent.layout;
-        cameraDimensionsRef.current = { width, height };
-      }}
-    >
+      onLayout={e => {
+        const {width, height} = e.nativeEvent.layout;
+        cameraDimensionsRef.current = {width, height};
+      }}>
       {/* Start/Stop Button */}
       <TouchableOpacity
         onPress={onToggleStreaming}
         style={[
           styles.startButton,
-          { backgroundColor: isStreaming ? '#DC2626' : '#2E7D32' },
-        ]}
-      >
+          {backgroundColor: isStreaming ? '#DC2626' : '#2E7D32'},
+        ]}>
         <Text style={styles.startButtonText}>
           {isStreaming ? '■ Stop' : '▶ Start'}
         </Text>
@@ -49,24 +70,31 @@ export const CameraView: React.FC<CameraViewProps> = ({
 
       {/* Reset Button */}
       {onReset && isStreaming && (
-        <TouchableOpacity
-          onPress={onReset}
-          style={styles.resetButton}
-        >
+        <TouchableOpacity onPress={onReset} style={styles.resetButton}>
           <Text style={styles.resetButtonText}>🔄 Reset</Text>
         </TouchableOpacity>
       )}
 
       {/* Inference Mode Badge */}
-      {isStreaming && (
-        <View style={[
-          styles.modeBadge,
-          { backgroundColor: isUsingLocal ? '#FF9800' : '#4CAF50' }
-        ]}>
-          <Text style={styles.modeBadgeText}>
-            {isUsingLocal ? '📱 LOCAL' : '🌐 SERVER'}
-          </Text>
-        </View>
+      {isStreaming && detections.length === 0 && (
+        <Animated.View
+          style={[
+            styles.modeBadge,
+            {
+              opacity: blinkOpacity,
+              transform: [
+                {
+                  scale: blinkOpacity.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.95, 1],
+                  }),
+                },
+              ],
+              backgroundColor: '#DC2626',
+            },
+          ]}>
+          <Text style={styles.modeBadgeText}>Scan at least 1ft away</Text>
+        </Animated.View>
       )}
 
       {/* Camera Component */}
@@ -77,7 +105,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
         isActive={isStreaming}
         photo={true}
         onInitialized={() => setCameraReady(true)}
-        onError={(err) => console.error('Camera error:', err)}
+        onError={err => console.error('Camera error:', err)}
       />
 
       {/* Detection Overlay */}
@@ -111,8 +139,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ccc',
   },
-  camera: { 
-    flex: 1 
+  camera: {
+    flex: 1,
   },
   startButton: {
     position: 'absolute',
@@ -128,10 +156,10 @@ const styles = StyleSheet.create({
     elevation: 5,
     zIndex: 10,
   },
-  startButtonText: { 
-    color: '#fff', 
-    fontWeight: 'bold', 
-    fontSize: 13 
+  startButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 13,
   },
   resetButton: {
     position: 'absolute',
@@ -156,13 +184,13 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingVertical: 4,
     paddingHorizontal: 10,
-    elevation: 3,
+    elevation: 2,
     zIndex: 10,
   },
   modeBadgeText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 11,
+    fontSize: 10,
   },
   detectionCountBadge: {
     position: 'absolute',

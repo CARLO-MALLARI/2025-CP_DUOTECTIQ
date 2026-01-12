@@ -1,6 +1,6 @@
 
 from ultralytics import YOLO
-model = YOLO("yolov8.pt")
+model = YOLO("best.pt")
 import json
 with open("classes.json", "w") as f:
     json.dump(model.names, f, indent=2)
