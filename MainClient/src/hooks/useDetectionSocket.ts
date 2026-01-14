@@ -1,7 +1,6 @@
-import {useState, useEffect, useRef, useCallback, useContext} from 'react';
+import {useState, useEffect, useRef, useCallback} from 'react';
 import io, {Socket} from 'socket.io-client';
 import {Detection, DetectionData, CounterData} from '../types/detection.types';
-import {SettingsContext} from '../context/SettingsContext';
 import {auth} from '../lib/firebase';
 import {uploadSummaryToFirestore} from '../helpers/firebaseUploadHelper';
 import {
@@ -9,10 +8,11 @@ import {
   loadFallbackModel,
   resetLocalTracking,
 } from './useLocalModel';
+import {sharedStore} from '../stores/sharedStore';
 
 interface EnhancedDetectionData extends DetectionData {
   summary?: any[];
-  isLocal?: boolean; // Flag to indicate if detection came from local model
+  isLocal?: boolean;
 }
 
 export const useDetectionSocket = () => {
@@ -22,231 +22,153 @@ export const useDetectionSocket = () => {
   const [isUsingLocalModel, setIsUsingLocalModel] = useState(false);
   const [localModelReady, setLocalModelReady] = useState(false);
   const socketRef = useRef<Socket | null>(null);
-  const {serverUrl} = useContext(SettingsContext);
-  const currentUrlRef = useRef<string>(serverUrl);
+  const currentUrlRef = useRef<string>(sharedStore.serverUrl);
 
-  // Track last detection time for staleness detection
   const lastDetectionTimeRef = useRef<number>(Date.now());
   const connectionCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
   const user = auth.currentUser;
-  const userId = user ? user.uid : 'anonymous';
 
-  // Load local model on mount
+  // Load local fallback model
   useEffect(() => {
     const initLocalModel = async () => {
       try {
         console.log('🔄 Loading local ONNX model...');
         await loadFallbackModel();
         setLocalModelReady(true);
-        console.log('✅ Local model ready for fallback');
+        console.log('✅ Local model ready');
       } catch (error) {
-        console.error('❌ Failed to load local model:', error);
+        console.error('❌ Failed to load local model', error);
         setLocalModelReady(false);
       }
     };
-
     initLocalModel();
   }, []);
 
   // Monitor connection health
   useEffect(() => {
-    const checkConnectionHealth = () => {
-      const timeSinceLastDetection = Date.now() - lastDetectionTimeRef.current;
-      const STALE_THRESHOLD = 10000; // 10 seconds
-
-      // If connected but no detections for a while, consider it stale
-      if (connected && timeSinceLastDetection > STALE_THRESHOLD) {
-        console.warn('⚠️ Connection appears stale, switching to local model');
-        setIsUsingLocalModel(true);
-      }
-
-      // If disconnected and we have local model, use it
-      if (!connected && localModelReady) {
-        setIsUsingLocalModel(true);
-      }
-
-      // If reconnected and receiving data, switch back to server
-      if (connected && timeSinceLastDetection < STALE_THRESHOLD) {
-        setIsUsingLocalModel(false);
-      }
+    const checkHealth = () => {
+      const delta = Date.now() - lastDetectionTimeRef.current;
+      const STALE_THRESHOLD = 10000;
+      // if (connected && delta > STALE_THRESHOLD) {
+      //   console.warn('⚠️ Connection appears stale, switching to local model');
+      //   setIsUsingLocalModel(true);
+      // }
+      if (connected && delta < STALE_THRESHOLD) setIsUsingLocalModel(false);
     };
+    connectionCheckIntervalRef.current = setInterval(checkHealth, 5000);
+    return () => clearInterval(connectionCheckIntervalRef.current!);
+  }, [connected]);
 
-    // Check every 5 seconds
-    connectionCheckIntervalRef.current = setInterval(
-      checkConnectionHealth,
-      5000,
-    );
-
-    return () => {
-      if (connectionCheckIntervalRef.current) {
-        clearInterval(connectionCheckIntervalRef.current);
+  // Function to create/connect socket
+  const connectSocket = useCallback(
+    (url: string) => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current.removeAllListeners();
+        socketRef.current = null;
+        setConnected(false);
       }
-    };
-  }, [connected, localModelReady]);
 
-  // Socket connection management
-  useEffect(() => {
-    if (currentUrlRef.current === serverUrl && socketRef.current?.connected) {
-      console.log(
-        '⏭️  Socket already connected to this URL, skipping reconnect',
-      );
-      return;
-    }
+      console.log('🔌 Connecting to:', url);
+      const socket = io(url, {
+        transports: ['websocket'],
+        reconnectionAttempts: 5,
+      });
+      socketRef.current = socket;
+      currentUrlRef.current = url;
 
-    console.log('🔄 Socket effect triggered');
-    console.log('   Old URL:', currentUrlRef.current);
-    console.log('   New URL:', serverUrl);
-
-    currentUrlRef.current = serverUrl;
-
-    // Clean up previous socket
-    if (socketRef.current) {
-      console.log('🧹 Cleaning up old socket connection');
-      socketRef.current.removeAllListeners();
-      socketRef.current.disconnect();
-      socketRef.current = null;
-      setConnected(false);
-    }
-
-    // Create new socket connection
-    console.log('🔌 Creating new socket connection to:', serverUrl);
-    const newSocket = io(serverUrl, {
-      transports: ['websocket'],
-      reconnectionAttempts: 5,
-      reconnectionDelay: 2000,
-      timeout: 10000,
-      forceNew: true,
-    });
-
-    socketRef.current = newSocket;
-
-    newSocket.on('connect', () => {
-      console.log('✅ Socket connected to:', serverUrl);
-      setConnected(true);
-      setIsUsingLocalModel(false); // Switch back to server when connected
-    });
-
-    newSocket.on('disconnect', reason => {
-      console.log('🔌 Socket disconnected from:', serverUrl, 'Reason:', reason);
-      setConnected(false);
-
-      // Switch to local model if available
-      if (localModelReady) {
-        console.log('📱 Switching to local inference mode');
-        setIsUsingLocalModel(true);
-      }
-    });
-
-    newSocket.on(
-      'detections',
-      async (data: DetectionData & {summary?: any[]}) => {
-        const timestamp = new Date().toISOString();
-        lastDetectionTimeRef.current = Date.now(); // Update last detection time
-
-        setDetections(data.detections || []);
-        if (data.counters) setCounters(data.counters);
-
-        // Mark as server-based detection
+      socket.on('connect', () => {
+        console.log('✅ Socket connected to:', url);
+        setConnected(true);
         setIsUsingLocalModel(false);
+      });
 
-        if (data.summary && data.summary.length > 0) {
-          const currentUser = auth.currentUser;
-          if (!currentUser) {
-            console.warn('No authenticated user, skipping Firestore upload');
-            return;
-          }
-          const formatted: any = {};
+      socket.on('disconnect', reason => {
+        console.log('🔌 Socket disconnected from:', url, 'Reason:', reason);
+        setConnected(false);
+      });
 
-          for (const item of data.summary) {
-            const crop = item.crop;
-            const normalizedCrop =
-              crop.toLowerCase() === 'bellpepper' ? 'Bell Pepper' : crop;
-            const size = item.type.toLowerCase();
-            const color = (item.color || '').toLowerCase();
+      socket.on(
+        'detections',
+        async (data: DetectionData & {summary?: any[]}) => {
+          lastDetectionTimeRef.current = Date.now();
+          setDetections(data.detections || []);
+          if (data.counters) setCounters(data.counters);
+          setIsUsingLocalModel(false);
 
-            if (!formatted[normalizedCrop]) {
-              formatted[normalizedCrop] = {
-                small: {green: 0, red: 0},
-                medium: {green: 0, red: 0},
-                large: {green: 0, red: 0},
-                total: {damaged: 0},
-              };
-            }
-
-            if (item.status.toLowerCase() === 'damaged') {
-              formatted[normalizedCrop].total.damaged += item.amount;
-            } else {
-              if (formatted[normalizedCrop][size] && color) {
-                formatted[normalizedCrop][size][color] += item.amount;
+          // Keep original Firebase upload logic
+          if (data.summary && data.summary.length > 0 && user) {
+            const formatted: any = {};
+            for (const item of data.summary) {
+              const crop =
+                item.crop.toLowerCase() === 'bellpepper'
+                  ? 'Bell Pepper'
+                  : item.crop;
+              const size = item.type.toLowerCase();
+              const color = (item.color || '').toLowerCase();
+              if (!formatted[crop]) {
+                formatted[crop] = {
+                  small: {green: 0, red: 0},
+                  medium: {green: 0, red: 0},
+                  large: {green: 0, red: 0},
+                  total: {damaged: 0},
+                };
+              }
+              if (item.status.toLowerCase() === 'damaged') {
+                formatted[crop].total.damaged += item.amount;
+              } else if (formatted[crop][size] && color) {
+                formatted[crop][size][color] += item.amount;
               }
             }
+            try {
+              await uploadSummaryToFirestore(
+                user.uid,
+                formatted,
+                new Date().toISOString(),
+              );
+            } catch (err) {
+              console.error('Failed to upload summary:', err);
+            }
           }
-
-          try {
-            console.log(
-              '🚀 Formatted summary before upload:',
-              JSON.stringify(formatted, null, 2),
-            );
-            await uploadSummaryToFirestore(
-              currentUser.uid,
-              formatted,
-              timestamp,
-            );
-          } catch (error) {
-            console.error('Failed to upload summary:', error);
-          }
-        }
-      },
-    );
-
-    newSocket.on('connect_error', error => {
-      console.error(
-        '❌ Socket connection error for URL:',
-        serverUrl,
-        error.message,
+        },
       );
-      setConnected(false);
 
-      // Switch to local model on connection error
-      if (localModelReady) {
-        console.log('📱 Connection error, switching to local model');
-        setIsUsingLocalModel(true);
+      socket.on('connect_error', err => {
+        console.error('❌ Socket connection error for URL:', url, err.message);
+        setConnected(false);
+      });
+
+      socket.on('reconnect_attempt', attempt => {
+        console.log('🔄 Reconnection attempt', attempt, 'for URL:', url);
+      });
+
+      socket.on('reconnect_failed', () => {
+        console.error('❌ Reconnection failed for URL:', url);
+        setConnected(false);
+      });
+    },
+    [user],
+  );
+
+  // Subscribe to shared store changes and connect
+  useEffect(() => {
+    connectSocket(sharedStore.serverUrl);
+    const unsubscribe = sharedStore.subscribe(newUrl => {
+      if (newUrl !== currentUrlRef.current) {
+        console.log('🔄 Server URL changed, reconnecting socket...');
+        connectSocket(newUrl);
       }
     });
-
-    newSocket.on('reconnect_attempt', attemptNumber => {
-      console.log(
-        '🔄 Reconnection attempt',
-        attemptNumber,
-        'for URL:',
-        serverUrl,
-      );
-    });
-
-    newSocket.on('reconnect_failed', () => {
-      console.error('❌ Reconnection failed for URL:', serverUrl);
-      setConnected(false);
-
-      if (localModelReady) {
-        console.log('📱 Reconnection failed, using local model');
-        setIsUsingLocalModel(true);
-      }
-    });
-
     return () => {
-      console.log('🧹 useDetectionSocket cleanup');
-      newSocket.removeAllListeners();
-      newSocket.disconnect();
+      unsubscribe();
+      socketRef.current?.disconnect();
     };
-  }, [serverUrl, localModelReady]);
+  }, [connectSocket]);
 
-  // Reset counters function
   const resetCounters = useCallback(() => {
     if (connected && socketRef.current) {
       socketRef.current.emit('reset_counters');
     } else {
-      // Reset local tracking
       resetLocalTracking();
       setCounters(null);
     }

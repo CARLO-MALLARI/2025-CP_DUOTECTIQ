@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, {useState} from 'react';
 import {
   View,
   Text,
@@ -10,17 +10,17 @@ import {
   ImageBackground,
   Dimensions,
 } from 'react-native';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth, db } from '../../lib/firebase';
-import { doc, setDoc } from 'firebase/firestore';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { AuthStackParamList } from '../../types/navigation';
+import {createUserWithEmailAndPassword} from 'firebase/auth';
+import {auth, db} from '../../lib/firebase';
+import {doc, setDoc} from 'firebase/firestore';
+import {useNavigation} from '@react-navigation/native';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {AuthStackParamList} from '../../types/navigation';
 import LoadingOverlay from '../../components/LoadingOverlay';
-import { Picker } from '@react-native-picker/picker';
+import {Picker} from '@react-native-picker/picker';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
-const { width, height } = Dimensions.get('window');
+const {width, height} = Dimensions.get('window');
 
 type AuthNav = NativeStackNavigationProp<AuthStackParamList>;
 
@@ -31,6 +31,7 @@ const SignupScreen: React.FC = () => {
   const [middleName, setMiddleName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState(''); // new phone field
   const [role, setRole] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -41,31 +42,47 @@ const SignupScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
+
+  const handlePhoneChange = (text: string) => {
+    // Remove any non-digit characters
+    const digitsOnly = text.replace(/\D/g, '');
+    setPhone(digitsOnly);
+  };
+
   const handleSignup = async () => {
+    if (!email || !password || !phone) {
+      return Alert.alert('Error', 'Please fill in all required fields!');
+    }
     if (password !== confirmPassword) {
       return Alert.alert('Error', 'Passwords do not match!');
     }
+
     setLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        email.trim(),
+        password,
+      );
       const user = userCredential.user;
 
-      await setDoc(doc(db, 'users', user.uid), 
-      {
-        firstName,
-        middleName,
-        lastName,
-        role,
-        address,
-        city,
-        state,
-        zip,
-        email: email.trim(),
-        createdAt: new Date(),
-      },
-      { merge: true }
-    );
+      await setDoc(
+        doc(db, 'users', user.uid),
+        {
+          firstName,
+          middleName,
+          lastName,
+          role,
+          address,
+          city,
+          state,
+          zip,
+          email: email.trim(),
+          phone: phone.trim(), // store phone in Firestore
+          createdAt: new Date(),
+        },
+        {merge: true},
+      );
 
       Alert.alert('Success', 'Account created successfully!');
       navigation.navigate('Login');
@@ -79,28 +96,22 @@ const SignupScreen: React.FC = () => {
 
   return (
     <ImageBackground
-      source={require('../../assets/auth-bg.jpg')} // Replace with your background image
+      source={require('../../assets/auth-bg.jpg')}
       style={styles.background}
-      resizeMode="cover"
-    >
+      resizeMode="cover">
       <View style={styles.overlay} />
       <View style={styles.container}>
-        {/* Modal-like Card Container */}
         <View style={styles.modalCard}>
-          {/* Close Button */}
           <TouchableOpacity
             style={styles.closeButton}
-            onPress={() => navigation.goBack()}
-          >
+            onPress={() => navigation.goBack()}>
             <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>
 
           <ScrollView
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.scrollContent}
-          >
-
-            {/* First Name & Last Name */}
+            contentContainerStyle={styles.scrollContent}>
+            {/* Names */}
             <View style={styles.row}>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>First Name</Text>
@@ -123,18 +134,31 @@ const SignupScreen: React.FC = () => {
                 />
               </View>
             </View>
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Last Name</Text>
-              <TextInput
-                placeholder="Enter Last Name"
-                placeholderTextColor="#666"
-                style={styles.input}
-                value={lastName}
-                onChangeText={setLastName}
-              />
+            <View style={styles.row}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Last Name</Text>
+                <TextInput
+                  placeholder="Enter Last Name"
+                  placeholderTextColor="#666"
+                  style={styles.input}
+                  value={lastName}
+                  onChangeText={setLastName}
+                />
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Phone</Text>
+                <TextInput
+                  placeholder="Enter Phone Number"
+                  placeholderTextColor="#666"
+                  style={styles.input}
+                  value={phone}
+                  onChangeText={handlePhoneChange}
+                  keyboardType="phone-pad"
+                />
+              </View>
             </View>
 
-            {/* Email & Role */}
+            {/* Email & Phone */}
             <View style={styles.row}>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Email</Text>
@@ -153,11 +177,9 @@ const SignupScreen: React.FC = () => {
                 <View style={styles.pickerContainer}>
                   <Picker
                     selectedValue={role}
-                    onValueChange={(itemValue) => setRole(itemValue)}
+                    onValueChange={itemValue => setRole(itemValue)}
                     style={styles.picker}
-                    dropdownIconColor="#333"
-                  >
-                    
+                    dropdownIconColor="#333">
                     <Picker.Item label=" " value=" " />
                     <Picker.Item label="Vendor" value="Vendor" />
                     <Picker.Item label="Farmer" value="Farmer" />
@@ -166,10 +188,11 @@ const SignupScreen: React.FC = () => {
                   </Picker>
                 </View>
               </View>
-
             </View>
 
-            {/* Address & Street */}
+            {/* Role */}
+
+            {/* Address fields */}
             <View style={styles.row}>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Address</Text>
@@ -192,8 +215,6 @@ const SignupScreen: React.FC = () => {
                 />
               </View>
             </View>
-
-            {/* City & Zip Code */}
             <View style={styles.row}>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>City</Text>
@@ -218,8 +239,8 @@ const SignupScreen: React.FC = () => {
               </View>
             </View>
 
+            {/* Password */}
             <View style={styles.row}>
-              {/* Password */}
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Password</Text>
                 <View>
@@ -243,10 +264,9 @@ const SignupScreen: React.FC = () => {
                 </View>
               </View>
 
-              {/* Confirm Password */}
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Confirm Password</Text>
-                <View >
+                <View>
                   <TextInput
                     placeholder="Confirm Password"
                     placeholderTextColor="#666"
@@ -269,11 +289,13 @@ const SignupScreen: React.FC = () => {
             </View>
 
             {/* Sign Up Button */}
-            <TouchableOpacity style={styles.signupButton} onPress={handleSignup}>
+            <TouchableOpacity
+              style={styles.signupButton}
+              onPress={handleSignup}>
               <Text style={styles.signupButtonText}>Sign Up</Text>
             </TouchableOpacity>
 
-            {/* Login Link */}
+            {/* Login link */}
             <View style={styles.loginContainer}>
               <Text style={styles.loginText}>Already have an account? </Text>
               <TouchableOpacity onPress={() => navigation.navigate('Login')}>
@@ -315,7 +337,7 @@ const styles = StyleSheet.create({
     padding: 12,
     paddingTop: 22,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: {width: 0, height: 4},
     shadowOpacity: 0.25,
     shadowRadius: 6,
     elevation: 6,
@@ -419,10 +441,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 12,
     top: '50%',
-    transform: [{ translateY: -11 }], // centers vertically
+    transform: [{translateY: -11}], // centers vertically
   },
-
 });
-
 
 export default SignupScreen;

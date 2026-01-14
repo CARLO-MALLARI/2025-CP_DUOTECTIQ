@@ -9,49 +9,54 @@ import {
   Image,
   Alert,
   ScrollView,
+  Modal,
 } from 'react-native';
 import Svg, {Defs, LinearGradient, Path, Stop} from 'react-native-svg';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import {
-  signInWithEmailAndPassword,
-  signInWithCredential,
-  GoogleAuthProvider,
-  FacebookAuthProvider,
-  signOut,
-} from 'firebase/auth';
-import {auth} from '../../lib/firebase';
+import {signInWithEmailAndPassword} from 'firebase/auth';
+import {auth, db} from '../../lib/firebase';
+import {collection, query, where, getDocs} from 'firebase/firestore';
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {AuthStackParamList} from '../../types/navigation';
 import LoadingOverlay from '../../components/LoadingOverlay';
-import {
-  GoogleSignin,
-  statusCodes,
-} from '@react-native-google-signin/google-signin';
-import {LoginManager, AccessToken} from 'react-native-fbsdk-next';
-import {RootStackParamList} from '../../navigation/AppNavigator';
+import {GoogleSignin} from '@react-native-google-signin/google-signin';
+import {GoogleAuthProvider, signInWithCredential, signOut} from 'firebase/auth';
 
-type AuthNav = NativeStackNavigationProp<AuthStackParamList>;
-type RootStackNav = NativeStackNavigationProp<RootStackParamList>;
 const {width, height} = Dimensions.get('window');
+type AuthNav = NativeStackNavigationProp<AuthStackParamList>;
 
 const LoginScreen: React.FC = () => {
+  const navigation = useNavigation<AuthNav>();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const navigation = useNavigation<AuthNav>();
-  const rootnavigation = useNavigation<RootStackNav>();
 
-  const handleLogin = async () => {
+  // Phone login modal
+  const [phoneModalVisible, setPhoneModalVisible] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [phonePassword, setPhonePassword] = useState('');
+  const [showPhonePassword, setShowPhonePassword] = useState(false);
+
+  const [loading, setLoading] = useState(false);
+
+  const handlePhoneChange = (text: string) => {
+    // Remove any non-digit characters
+    const digitsOnly = text.replace(/\D/g, '');
+    setPhone(digitsOnly);
+  };
+
+  // Email + Password login
+  const handleEmailLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
-
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
+      Alert.alert('Success', 'Logged in!');
     } catch (err: any) {
       Alert.alert('Login Error', err.message || 'Unknown error');
     } finally {
@@ -59,20 +64,39 @@ const LoginScreen: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    console.log('🔧 Configuring GoogleSignin...');
-    try {
-      GoogleSignin.configure({
-        webClientId:
-          '261048712743-0rbmk3d5lg1n69ielci24s5da5b11e05.apps.googleusercontent.com',
-        offlineAccess: true,
-      });
-      console.log('✅ GoogleSignin configured SUCCESSFULLY');
-    } catch (error) {
-      console.error('❌ GoogleSignin config FAILED:', error);
+  // Phone + Password login
+  const handlePhoneLogin = async () => {
+    if (!phone || !phonePassword) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
     }
-  }, []);
+    setLoading(true);
+    try {
+      // Query Firestore for the user with this phone
+      const q = query(
+        collection(db, 'users'),
+        where('phone', '==', phone.trim()),
+      );
+      const querySnapshot = await getDocs(q);
+      if (querySnapshot.empty) {
+        throw new Error('No user found with this phone number');
+      }
 
+      const userDoc = querySnapshot.docs[0];
+      const userEmail = userDoc.data().email;
+      if (!userEmail) throw new Error('No email associated with this phone');
+
+      await signInWithEmailAndPassword(auth, userEmail, phonePassword);
+      Alert.alert('Success', 'Logged in with phone!');
+      setPhoneModalVisible(false);
+    } catch (err: any) {
+      Alert.alert('Login Error', err.message || 'Unknown error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Google login
   const handleGoogleSignIn = async () => {
     setLoading(true);
     try {
@@ -88,60 +112,30 @@ const LoginScreen: React.FC = () => {
       const userInfo = await GoogleSignin.signIn();
       const tokens = await GoogleSignin.getTokens();
 
-      if (!tokens.idToken) {
-        throw new Error('No ID token received from Google!');
-      }
-
+      if (!tokens.idToken) throw new Error('No ID token received from Google!');
       const googleCredential = GoogleAuthProvider.credential(tokens.idToken);
-      const result = await signInWithCredential(auth, googleCredential);
+      await signInWithCredential(auth, googleCredential);
 
       Alert.alert('Success', 'Logged in with Google!');
-      rootnavigation.navigate('Scan');
-    } catch (error: any) {
-      console.error('❌ DETAILED ERROR:', error);
-      Alert.alert('Error', error.message || 'Something went wrong');
+    } catch (err: any) {
+      Alert.alert('Google Login Error', err.message || 'Unknown error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleFacebookSignIn = async () => {
-    setLoading(true);
-    try {
-      const result = await LoginManager.logInWithPermissions([
-        'public_profile',
-        'email',
-      ]);
-      if (result.isCancelled) {
-        Alert.alert('Cancelled', 'Login cancelled');
-        setLoading(false);
-        return;
-      }
-
-      const data = await AccessToken.getCurrentAccessToken();
-      if (!data) throw new Error('Failed to get access token');
-
-      const facebookCredential = FacebookAuthProvider.credential(
-        data.accessToken,
-      );
-      await signInWithCredential(auth, facebookCredential);
-      Alert.alert('Success', 'Logged in with Facebook!');
-      rootnavigation.navigate('Scan');
-    } catch (error: any) {
-      console.error('Facebook Sign-In Error:', error);
-      Alert.alert(
-        'Facebook Sign-In Error',
-        error.message || 'Failed to sign in',
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId:
+        '261048712743-0rbmk3d5lg1n69ielci24s5da5b11e05.apps.googleusercontent.com',
+      offlineAccess: true,
+    });
+  }, []);
 
   return (
     <ScrollView contentContainerStyle={styles.scroll}>
       <View style={styles.container}>
-        {/* 🥬 Top Image with wave cut */}
+        {/* Top Image */}
         <View style={styles.imageContainer}>
           <Image
             source={require('../../assets/auth-bg.jpg')}
@@ -161,22 +155,18 @@ const LoginScreen: React.FC = () => {
                 </LinearGradient>
               </Defs>
               <Path
-                d={`M0 ${height * 0.18}
-                  Q${width * 0.25} ${height * 0.1} ${width * 0.5} ${
-                  height * 0.2
-                }
-                  T${width} ${height * 0.25}
-                  Q${width * 1} ${height * 0.5} ${width} ${height * 0.75}
-                  L${width} ${height}
-                  L0 ${height}
-                  Z`}
+                d={`M0 ${height * 0.18} Q${width * 0.25} ${height * 0.1} ${
+                  width * 0.5
+                } ${height * 0.2} T${width} ${height * 0.25} Q${width * 1} ${
+                  height * 0.5
+                } ${width} ${height * 0.75} L${width} ${height} L0 ${height} Z`}
                 fill="url(#waveGrad)"
               />
             </Svg>
           </View>
         </View>
 
-        {/* 🥗 Content */}
+        {/* Content */}
         <View style={styles.content}>
           <Text style={styles.title}>Welcome Back</Text>
           <Text style={styles.subtitle}>Login to your account</Text>
@@ -195,7 +185,7 @@ const LoginScreen: React.FC = () => {
             />
           </View>
 
-          {/* Password Input with Eye Icon */}
+          {/* Password Input */}
           <View style={styles.inputContainer}>
             <Text style={styles.icon}>🔒</Text>
             <TextInput
@@ -228,10 +218,19 @@ const LoginScreen: React.FC = () => {
               />
               <Text style={styles.socialText}>Google</Text>
             </TouchableOpacity>
+
+            {/* Phone login trigger */}
+            <TouchableOpacity
+              style={styles.socialButton}
+              onPress={() => setPhoneModalVisible(true)}>
+              <Text style={styles.socialText}>Phone</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Login Button */}
-          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+          <TouchableOpacity
+            style={styles.loginButton}
+            onPress={handleEmailLogin}>
             <Text style={styles.loginText}>Login</Text>
           </TouchableOpacity>
 
@@ -243,6 +242,46 @@ const LoginScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Phone Modal */}
+        <Modal visible={phoneModalVisible} transparent animationType="slide">
+          <View style={styles.modalBackground}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Login with Phone</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Enter your phone number"
+                keyboardType="numeric"
+                value={phone}
+                onChangeText={handlePhoneChange}
+              />
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Password"
+                secureTextEntry={!showPhonePassword}
+                value={phonePassword}
+                onChangeText={setPhonePassword}
+              />
+              <TouchableOpacity
+                style={styles.showPassButton}
+                onPress={() => setShowPhonePassword(!showPhonePassword)}>
+                <Ionicons
+                  name={showPhonePassword ? 'eye-off' : 'eye'}
+                  size={22}
+                  color="#666"
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalButton}
+                onPress={handlePhoneLogin}>
+                <Text style={styles.modalButtonText}>Login</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setPhoneModalVisible(false)}>
+                <Text style={styles.modalCancel}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
 
         <LoadingOverlay visible={loading} message="Logging in..." />
       </View>
@@ -261,7 +300,7 @@ const styles = StyleSheet.create({
   },
   imageContainer: {
     width: '100%',
-    height: 180,
+    height: '35%',
     position: 'relative',
     overflow: 'hidden',
   },
@@ -329,7 +368,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 10,
-    width: '100%',
+    width: '48%',
     justifyContent: 'center',
   },
   socialIcon: {
@@ -367,6 +406,40 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
+  modalBackground: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  modalCard: {
+    width: '80%',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+  },
+  modalTitle: {fontSize: 20, fontWeight: '700', marginBottom: 12},
+  modalInput: {
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#444',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 12,
+  },
+  modalButton: {
+    backgroundColor: '#4b7a1c',
+    borderRadius: 12,
+    paddingVertical: 12,
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  modalButtonText: {color: '#fff', fontWeight: '600', fontSize: 16},
+  modalCancel: {color: '#1e90ff', fontWeight: '600', fontSize: 14},
+  showPassButton: {position: 'absolute', right: 15, top: 150},
 });
 
 export default LoginScreen;

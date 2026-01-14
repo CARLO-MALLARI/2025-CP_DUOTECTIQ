@@ -22,6 +22,7 @@ import {
 } from 'firebase/auth';
 import {auth} from '../lib/firebase';
 import Constants from 'expo-constants';
+import {sharedStore} from '../stores/sharedStore';
 
 const SettingsScreen = () => {
   // Password fields
@@ -30,41 +31,40 @@ const SettingsScreen = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  const [inputUrl, setInputUrl] = useState(sharedStore.serverUrl);
   // Theme preference
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   // 🖥️ Server URL
-  const [serverUrl, setServerUrl] = useState('');
-  const DEFAULT_URL = 'https://duotecback.onrender.com/';
 
   useEffect(() => {
     (async () => {
       const savedTheme = await AsyncStorage.getItem('theme');
       setIsDarkMode(savedTheme === 'dark');
-
-      const savedUrl = await AsyncStorage.getItem('server_url');
-      setServerUrl(savedUrl || DEFAULT_URL);
     })();
   }, []);
 
-  // 🔄 Save URL
-  const handleSaveUrl = async () => {
-    if (!serverUrl.trim())
+  useEffect(() => {
+    // Subscribe to store updates
+    const unsubscribe = sharedStore.subscribe(url => setInputUrl(url));
+    return unsubscribe;
+  }, []);
+
+  const handleSaveUrl = () => {
+    if (!inputUrl.trim())
       return Alert.alert('Error', 'Please enter a valid URL.');
-    await AsyncStorage.setItem('server_url', serverUrl.trim());
-    Alert.alert('Saved', `Server URL set to: ${serverUrl}`);
+    sharedStore.setServerUrl(inputUrl.trim());
+    Alert.alert('Saved', `Server URL set to: ${inputUrl}`);
   };
 
-  // 🔁 Reset URL
-  const handleResetUrl = async () => {
-    await AsyncStorage.setItem('server_url', DEFAULT_URL);
-    setServerUrl(DEFAULT_URL);
+  const handleResetUrl = () => {
+    sharedStore.setServerUrl('http://192.168.100.33:5000');
     Alert.alert('Reset', 'Server URL restored to default.');
   };
 
   // 🌍 Open URL in browser
   const handleOpenUrl = () => {
-    if (serverUrl) Linking.openURL(serverUrl);
+    if (sharedStore.serverUrl) Linking.openURL(sharedStore.serverUrl);
   };
 
   // 🔄 Change password
@@ -248,8 +248,8 @@ const SettingsScreen = () => {
           <Text style={styles.sectionTitle}>Server URL</Text>
           <TextInput
             style={styles.input}
-            value={serverUrl}
-            onChangeText={setServerUrl}
+            value={inputUrl}
+            onChangeText={setInputUrl}
             placeholder="Enter backend URL"
             placeholderTextColor="#666"
             autoCapitalize="none"
