@@ -141,7 +141,6 @@ def iou(boxA, boxB):
 @socketio.on('frame')
 def handle_frame(data):
     sid = request.sid
-    start_time = time.time()
 
     try:
         if ',' in data:
@@ -231,7 +230,6 @@ def handle_frame(data):
             'unique_objects': len(seen)
         })
 
-        print(f"Frame: {len(final_detections)} dets, {len(seen)} unique | {time.time()-start:.3f}s")
 
     except Exception as e:
         print("Error:", e)

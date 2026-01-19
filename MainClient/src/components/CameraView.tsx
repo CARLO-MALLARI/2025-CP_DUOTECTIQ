@@ -132,19 +132,19 @@ const styles = StyleSheet.create({
   cameraContainer: {
     position: 'relative',
     width: '90%',
-    height: 220,
+    height: 350,
     borderRadius: 10,
     overflow: 'hidden',
     marginVertical: 10,
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#d0bebe',
   },
   camera: {
     flex: 1,
   },
   startButton: {
     position: 'absolute',
-    top: 10,
+    top: 2,
     left: 10,
     backgroundColor: '#007a33',
     borderRadius: 8,
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
   },
   resetButton: {
     position: 'absolute',
-    top: 10,
+    top: 2,
     right: 10,
     backgroundColor: '#2196F3',
     borderRadius: 8,
