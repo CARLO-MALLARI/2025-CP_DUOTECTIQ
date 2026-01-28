@@ -1,10 +1,10 @@
-import { doc, setDoc, getDoc, arrayUnion } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import {doc, setDoc, getDoc, arrayUnion} from 'firebase/firestore';
+import {db} from '../lib/firebase';
 
 interface CropSummary {
-  crop: string;   // "Tomato" | "Bell Pepper"
-  type: string;   // "small" | "medium" | "large"
-  color: string;  // "green" | "red"
+  crop: string; // "Tomato" | "Bell Pepper"
+  type: string; // "small" | "medium" | "large"
+  color: string; // "green" | "red"
   status: string; // "good" | "damaged"
   amount: number;
 }
@@ -12,7 +12,7 @@ interface CropSummary {
 export const uploadSummaryToFirestore = async (
   userId: string,
   summaryData: any, // raw detection counter data
-  timestamp: string
+  timestamp: string,
 ) => {
   try {
     const dateStr = new Date().toISOString().split('T')[0];
@@ -62,9 +62,9 @@ export const uploadSummaryToFirestore = async (
         lastUpdated: timestamp,
         records: arrayUnion(...records),
       },
-      { merge: true }
+      {merge: true},
     );
-    
+
     console.log('✅ Summary uploaded to Firestore:', records);
 
     console.log('✅ Uploaded summary with sizes to Firestore');

@@ -1,6 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Detection } from '../types/detection.types';
+import {View, Text, StyleSheet} from 'react-native';
+import {Detection} from '../types/detection.types';
 
 interface DetectionOverlayProps {
   detections: Detection[];
@@ -9,8 +9,7 @@ interface DetectionOverlayProps {
   isLocalModel?: boolean;
 }
 
-const DETECTION_IMAGE_WIDTH = 640;
-const DETECTION_IMAGE_HEIGHT = 480;
+const MODEL_SIZE = 640;
 
 export const DetectionOverlay: React.FC<DetectionOverlayProps> = ({
   detections,
@@ -18,8 +17,9 @@ export const DetectionOverlay: React.FC<DetectionOverlayProps> = ({
   cameraHeight,
   isLocalModel = false,
 }) => {
-  const scaleX = isLocalModel ? 1 : cameraWidth / 640;
-  const scaleY = isLocalModel ? 1 : cameraHeight / 480;
+  // Scale from 640x640 model space to camera display size
+  const scaleX = cameraWidth / MODEL_SIZE;
+  const scaleY = cameraHeight / MODEL_SIZE;
 
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
@@ -27,24 +27,28 @@ export const DetectionOverlay: React.FC<DetectionOverlayProps> = ({
         if (!det?.bbox) return null;
 
         const [x1, y1, x2, y2] = det.bbox;
+
+        // Scale bounding box coordinates
+        const left = x1 * scaleX;
+        const top = y1 * scaleY;
         const boxWidth = (x2 - x1) * scaleX;
         const boxHeight = (y2 - y1) * scaleY;
 
         return (
           <View
-            key={`${index}-${det.class}`}
+            key={`${index}-${det.class}-${det.track_id || ''}`}
             style={[
               styles.detectionBox,
               {
-                left: x1 * scaleX,
-                top: y1 * scaleY,
+                left,
+                top,
                 width: boxWidth,
                 height: boxHeight,
               },
-            ]}
-          >
+            ]}>
             <Text style={styles.label}>
               {det.class} ({(det.confidence * 100).toFixed(1)}%)
+              {det.track_id ? ` #${det.track_id}` : ''}
             </Text>
           </View>
         );

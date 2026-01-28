@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import {View, Text, StyleSheet, ScrollView, Dimensions} from 'react-native';
+import {PieChart, StackedBarChart} from 'react-native-chart-kit';
 
 interface DashboardData {
   totalPieces: number;
@@ -30,13 +31,42 @@ interface DashboardData {
       'Bell Pepper': number;
     };
   };
+  byWeek?: WeeklyStat[];
+}
+
+interface WeeklyStat {
+  week: string; // e.g. "2026-W03"
+  Tomato: number;
+  'Bell Pepper': number;
 }
 
 interface BarChartProps {
   data: DashboardData;
 }
 
-const BarChartComponent: React.FC<BarChartProps> = ({ data }) => {
+const BarChartComponent: React.FC<BarChartProps> = ({data}) => {
+  const chartWidth = Dimensions.get('window').width - 40;
+  const weeklyStats = data.byWeek ?? [];
+
+  const weeklyBarData = {
+    labels: weeklyStats.map(w => w.week),
+    legend: ['Tomato', 'Bell Pepper'],
+    data: weeklyStats.map(w => [w.Tomato, w['Bell Pepper']]),
+    barColors: ['#FF6347', '#FFD700'],
+  };
+
+  const chartConfig = {
+    backgroundColor: '#ffffff',
+    backgroundGradientFrom: '#ffffff',
+    backgroundGradientTo: '#ffffff',
+    decimalPlaces: 0,
+    color: (opacity = 1) => `rgba(51, 51, 51, ${opacity})`,
+    labelColor: (opacity = 1) => `rgba(51, 51, 51, ${opacity})`,
+    style: {borderRadius: 16},
+    barPercentage: 0.7,
+    propsForBackgroundLines: {stroke: '#e0e0e0'},
+  };
+
   const getTomatoPercentage = () => {
     if (data.totalPieces === 0) return 0;
     return Math.round((data.byCrop.Tomato / data.totalPieces) * 100);
@@ -55,7 +85,7 @@ const BarChartComponent: React.FC<BarChartProps> = ({ data }) => {
   const getSizeDistribution = (category: 'green' | 'red') => {
     const cat = data.byCategory[category];
     const total = cat.small + cat.medium + cat.large;
-    if (total === 0) return { small: 0, medium: 0, large: 0 };
+    if (total === 0) return {small: 0, medium: 0, large: 0};
     return {
       small: Math.round((cat.small / total) * 100),
       medium: Math.round((cat.medium / total) * 100),
@@ -66,221 +96,248 @@ const BarChartComponent: React.FC<BarChartProps> = ({ data }) => {
   const greenSizes = getSizeDistribution('green');
   const redSizes = getSizeDistribution('red');
 
+  // Crop distribution pie data
+  const cropData = [
+    {
+      name: 'Tomato',
+      value: data.byCrop.Tomato,
+      color: '#FF6347',
+      percentage: getTomatoPercentage(),
+    },
+    {
+      name: 'Bell Pepper',
+      value: data.byCrop['Bell Pepper'],
+      color: '#FFD700',
+      percentage: getBellPepperPercentage(),
+    },
+  ];
+
+  // Stacked bar data for categories
+  const stackedData = {
+    labels: ['Green', 'Red', 'Damaged'],
+    legend: ['Tomato', 'Bell Pepper'],
+    data: [
+      [data.byCategory.green.Tomato, data.byCategory.green['Bell Pepper']],
+      [data.byCategory.red.Tomato, data.byCategory.red['Bell Pepper']],
+      [data.byCategory.damaged.Tomato, data.byCategory.damaged['Bell Pepper']],
+    ],
+    barColors: ['#FF6347', '#FFD700'],
+  };
+
+  // Size distribution data
+  const greenSizeData = [
+    {
+      name: 'Small',
+      value: data.byCategory.green.small,
+      color: '#C8E6C9',
+      percentage: greenSizes.small,
+    },
+    {
+      name: 'Medium',
+      value: data.byCategory.green.medium,
+      color: '#81C784',
+      percentage: greenSizes.medium,
+    },
+    {
+      name: 'Large',
+      value: data.byCategory.green.large,
+      color: '#4CAF50',
+      percentage: greenSizes.large,
+    },
+  ];
+
+  const redSizeData = [
+    {
+      name: 'Small',
+      value: data.byCategory.red.small,
+      color: '#FF8A80',
+      percentage: redSizes.small,
+    },
+    {
+      name: 'Medium',
+      value: data.byCategory.red.medium,
+      color: '#E57373',
+      percentage: redSizes.medium,
+    },
+    {
+      name: 'Large',
+      value: data.byCategory.red.large,
+      color: '#F44336',
+      percentage: redSizes.large,
+    },
+  ];
+
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <Text style={styles.mainTitle}>Analytics Overview</Text>
 
-      {/* Overall Distribution */}
+      {/* Crop Distribution - Pie Chart */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Crop Distribution</Text>
-        
-        {/* Tomato */}
-        <View style={styles.statRow}>
-          <View style={styles.statHeader}>
-            <View style={[styles.colorDot, { backgroundColor: '#FF6347' }]} />
-            <Text style={styles.statLabel}>Tomato</Text>
+        {data.totalPieces > 0 ? (
+          <View style={{alignItems: 'center'}}>
+            <PieChart
+              data={cropData.map(d => ({
+                name: d.name,
+                population: d.value,
+                color: d.color,
+                legendFontColor: '#333',
+                legendFontSize: 12,
+              }))}
+              width={chartWidth}
+              height={200}
+              chartConfig={chartConfig}
+              accessor="population"
+              backgroundColor="transparent"
+              paddingLeft="0"
+              absolute={false}
+            />
+            <View style={{width: chartWidth, marginTop: 20}}>
+              {cropData.map(item => (
+                <View key={item.name} style={styles.statRow}>
+                  <View style={styles.statHeader}>
+                    <View
+                      style={[styles.colorDot, {backgroundColor: item.color}]}
+                    />
+                    <Text style={styles.statLabel}>{item.name}</Text>
+                  </View>
+                  <View style={styles.statDetails}>
+                    <Text style={styles.statValue}>{item.value}</Text>
+                    <Text style={styles.statPercent}>{item.percentage}%</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
           </View>
-          <View style={styles.statDetails}>
-            <Text style={styles.statValue}>{data.byCrop.Tomato}</Text>
-            <Text style={styles.statPercent}>{getTomatoPercentage()}%</Text>
-          </View>
-        </View>
-        <View style={styles.progressBar}>
-          <View
-            style={[
-              styles.progressFill,
-              { width: `${getTomatoPercentage()}%`, backgroundColor: '#FF6347' },
-            ]}
-          />
-        </View>
+        ) : (
+          <Text style={{textAlign: 'center', color: '#666'}}>
+            No data available
+          </Text>
+        )}
+      </View>
+      {/* Size Distribution - Pie Charts */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Size Distribution (Not Damaged)</Text>
 
-        {/* Bell Pepper */}
-        <View style={[styles.statRow, { marginTop: 16 }]}>
-          <View style={styles.statHeader}>
-            <View style={[styles.colorDot, { backgroundColor: '#FFD700' }]} />
-            <Text style={styles.statLabel}>Bell Pepper</Text>
+        {data.byCategory.green.total > 0 && (
+          <View style={{alignItems: 'center', marginBottom: 32}}>
+            <Text style={[styles.categoryTitle, {marginBottom: 12}]}>
+              Not Damaged - Green
+            </Text>
+            <PieChart
+              data={greenSizeData.map(d => ({
+                name: d.name,
+                population: d.value,
+                color: d.color,
+                legendFontColor: '#333',
+                legendFontSize: 10,
+              }))}
+              width={chartWidth}
+              height={220}
+              chartConfig={chartConfig}
+              accessor="population"
+              backgroundColor="transparent"
+              paddingLeft="0"
+              absolute={false}
+            />
+            <View style={styles.sizeRow}>
+              {greenSizeData.map(item => (
+                <View key={item.name} style={styles.sizeItem}>
+                  <View
+                    style={[styles.colorDot, {backgroundColor: item.color}]}
+                  />
+                  <Text style={styles.sizeLabel}>{item.name}</Text>
+                  <Text style={styles.sizeValue}>{item.value}</Text>
+                  <Text style={styles.sizePercent}>{item.percentage}%</Text>
+                </View>
+              ))}
+            </View>
           </View>
-          <View style={styles.statDetails}>
-            <Text style={styles.statValue}>{data.byCrop['Bell Pepper']}</Text>
-            <Text style={styles.statPercent}>{getBellPepperPercentage()}%</Text>
+        )}
+
+        {data.byCategory.red.total > 0 && (
+          <View style={{alignItems: 'center'}}>
+            <Text style={[styles.categoryTitle, {marginBottom: 12}]}>
+              Not Damaged - Red
+            </Text>
+            <PieChart
+              data={redSizeData.map(d => ({
+                name: d.name,
+                population: d.value,
+                color: d.color,
+                legendFontColor: '#333',
+                legendFontSize: 10,
+              }))}
+              width={chartWidth}
+              height={220}
+              chartConfig={chartConfig}
+              accessor="population"
+              backgroundColor="transparent"
+              paddingLeft="0"
+              absolute={false}
+            />
+            <View style={styles.sizeRow}>
+              {redSizeData.map(item => (
+                <View key={item.name} style={styles.sizeItem}>
+                  <View
+                    style={[styles.colorDot, {backgroundColor: item.color}]}
+                  />
+                  <Text style={styles.sizeLabel}>{item.name}</Text>
+                  <Text style={styles.sizeValue}>{item.value}</Text>
+                  <Text style={styles.sizePercent}>{item.percentage}%</Text>
+                </View>
+              ))}
+            </View>
           </View>
-        </View>
-        <View style={styles.progressBar}>
-          <View
-            style={[
-              styles.progressFill,
-              { width: `${getBellPepperPercentage()}%`, backgroundColor: '#FFD700' },
-            ]}
-          />
-        </View>
+        )}
       </View>
 
-      {/* Category Breakdown */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Category Breakdown</Text>
+        <Text style={styles.sectionTitle}>Weekly Production</Text>
 
-        {/* Green */}
-        <View style={styles.categoryCard}>
-          <View style={styles.categoryHeader}>
-            <View style={[styles.categoryDot, { backgroundColor: '#4CAF50' }]} />
-            <Text style={styles.categoryTitle}>Not Damaged - Green</Text>
-          </View>
-          
-          <View style={styles.categoryStats}>
-            <View style={styles.categoryStatItem}>
-              <Text style={styles.categoryStatLabel}>Total</Text>
-              <Text style={styles.categoryStatValue}>{data.byCategory.green.total}</Text>
-              <Text style={styles.categoryStatPercent}>
-                {getCategoryPercentage(data.byCategory.green.total)}%
-              </Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.categoryStatItem}>
-              <Text style={styles.categoryStatLabel}>Tomato</Text>
-              <Text style={styles.categoryStatValue}>{data.byCategory.green.Tomato}</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.categoryStatItem}>
-              <Text style={styles.categoryStatLabel}>Bell Pepper</Text>
-              <Text style={styles.categoryStatValue}>{data.byCategory.green['Bell Pepper']}</Text>
-            </View>
-          </View>
-
-          {/* Size distribution */}
-          {data.byCategory.green.total > 0 && (
-            <View style={styles.sizeDistribution}>
-              <Text style={styles.sizeTitle}>Size Distribution</Text>
-              <View style={styles.sizeRow}>
-                <View style={styles.sizeItem}>
-                  <Text style={styles.sizeLabel}>Small</Text>
-                  <Text style={styles.sizeValue}>{data.byCategory.green.small}</Text>
-                  <Text style={styles.sizePercent}>{greenSizes.small}%</Text>
-                </View>
-                <View style={styles.sizeItem}>
-                  <Text style={styles.sizeLabel}>Medium</Text>
-                  <Text style={styles.sizeValue}>{data.byCategory.green.medium}</Text>
-                  <Text style={styles.sizePercent}>{greenSizes.medium}%</Text>
-                </View>
-                <View style={styles.sizeItem}>
-                  <Text style={styles.sizeLabel}>Large</Text>
-                  <Text style={styles.sizeValue}>{data.byCategory.green.large}</Text>
-                  <Text style={styles.sizePercent}>{greenSizes.large}%</Text>
-                </View>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Red */}
-        <View style={styles.categoryCard}>
-          <View style={styles.categoryHeader}>
-            <View style={[styles.categoryDot, { backgroundColor: '#F44336' }]} />
-            <Text style={styles.categoryTitle}>Not Damaged - Red</Text>
-          </View>
-          
-          <View style={styles.categoryStats}>
-            <View style={styles.categoryStatItem}>
-              <Text style={styles.categoryStatLabel}>Total</Text>
-              <Text style={styles.categoryStatValue}>{data.byCategory.red.total}</Text>
-              <Text style={styles.categoryStatPercent}>
-                {getCategoryPercentage(data.byCategory.red.total)}%
-              </Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.categoryStatItem}>
-              <Text style={styles.categoryStatLabel}>Tomato</Text>
-              <Text style={styles.categoryStatValue}>{data.byCategory.red.Tomato}</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.categoryStatItem}>
-              <Text style={styles.categoryStatLabel}>Bell Pepper</Text>
-              <Text style={styles.categoryStatValue}>{data.byCategory.red['Bell Pepper']}</Text>
-            </View>
-          </View>
-
-          {/* Size distribution */}
-          {data.byCategory.red.total > 0 && (
-            <View style={styles.sizeDistribution}>
-              <Text style={styles.sizeTitle}>Size Distribution</Text>
-              <View style={styles.sizeRow}>
-                <View style={styles.sizeItem}>
-                  <Text style={styles.sizeLabel}>Small</Text>
-                  <Text style={styles.sizeValue}>{data.byCategory.red.small}</Text>
-                  <Text style={styles.sizePercent}>{redSizes.small}%</Text>
-                </View>
-                <View style={styles.sizeItem}>
-                  <Text style={styles.sizeLabel}>Medium</Text>
-                  <Text style={styles.sizeValue}>{data.byCategory.red.medium}</Text>
-                  <Text style={styles.sizePercent}>{redSizes.medium}%</Text>
-                </View>
-                <View style={styles.sizeItem}>
-                  <Text style={styles.sizeLabel}>Large</Text>
-                  <Text style={styles.sizeValue}>{data.byCategory.red.large}</Text>
-                  <Text style={styles.sizePercent}>{redSizes.large}%</Text>
-                </View>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* Damaged */}
-        <View style={styles.categoryCard}>
-          <View style={styles.categoryHeader}>
-            <View style={[styles.categoryDot, { backgroundColor: '#FFA726' }]} />
-            <Text style={styles.categoryTitle}>Damaged</Text>
-          </View>
-          
-          <View style={styles.categoryStats}>
-            <View style={styles.categoryStatItem}>
-              <Text style={styles.categoryStatLabel}>Total</Text>
-              <Text style={styles.categoryStatValue}>{data.byCategory.damaged.total}</Text>
-              <Text style={styles.categoryStatPercent}>
-                {getCategoryPercentage(data.byCategory.damaged.total)}%
-              </Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.categoryStatItem}>
-              <Text style={styles.categoryStatLabel}>Tomato</Text>
-              <Text style={styles.categoryStatValue}>{data.byCategory.damaged.Tomato}</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.categoryStatItem}>
-              <Text style={styles.categoryStatLabel}>Bell Pepper</Text>
-              <Text style={styles.categoryStatValue}>{data.byCategory.damaged['Bell Pepper']}</Text>
-            </View>
-          </View>
-        </View>
+        {weeklyStats.length > 0 ? (
+          <StackedBarChart
+            data={weeklyBarData}
+            width={chartWidth}
+            height={280}
+            chartConfig={chartConfig}
+            hideLegend={false}
+          />
+        ) : (
+          <Text style={{textAlign: 'center', color: '#666'}}>
+            No weekly data available
+          </Text>
+        )}
       </View>
 
       {/* Quality Metrics */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Quality Metrics</Text>
-        
         <View style={styles.metricsGrid}>
           <View style={styles.metricCard}>
             <Text style={styles.metricLabel}>Total Sorted</Text>
-            <Text style={[styles.metricValue, { color: '#007a33' }]}>
+            <Text style={[styles.metricValue, {color: '#007a33'}]}>
               {data.totalPieces}
             </Text>
           </View>
 
           <View style={styles.metricCard}>
             <Text style={styles.metricLabel}>Undamaged</Text>
-            <Text style={[styles.metricValue, { color: '#4CAF50' }]}>
+            <Text style={[styles.metricValue, {color: '#4CAF50'}]}>
               {data.byCategory.green.total + data.byCategory.red.total}
             </Text>
           </View>
 
           <View style={styles.metricCard}>
             <Text style={styles.metricLabel}>Damage Rate</Text>
-            <Text style={[styles.metricValue, { color: '#F44336' }]}>
+            <Text style={[styles.metricValue, {color: '#F44336'}]}>
               {getCategoryPercentage(data.byCategory.damaged.total)}%
             </Text>
           </View>
 
           <View style={styles.metricCard}>
             <Text style={styles.metricLabel}>Quality Score</Text>
-            <Text style={[styles.metricValue, { color: '#2196F3' }]}>
+            <Text style={[styles.metricValue, {color: '#2196F3'}]}>
               {100 - getCategoryPercentage(data.byCategory.damaged.total)}%
             </Text>
           </View>
@@ -290,6 +347,7 @@ const BarChartComponent: React.FC<BarChartProps> = ({ data }) => {
   );
 };
 
+// Styles remain the same (copy from your original code)
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#fff',
@@ -353,84 +411,15 @@ const styles = StyleSheet.create({
     minWidth: 40,
     textAlign: 'right',
   },
-  progressBar: {
-    height: 8,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  categoryCard: {
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  categoryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  categoryDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    marginRight: 8,
-  },
   categoryTitle: {
     fontSize: 15,
     fontWeight: '600',
     color: '#333',
   },
-  categoryStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 12,
-  },
-  categoryStatItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  categoryStatLabel: {
-    fontSize: 11,
-    color: '#666',
-    marginBottom: 4,
-  },
-  categoryStatValue: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 2,
-  },
-  categoryStatPercent: {
-    fontSize: 12,
-    color: '#007a33',
-  },
-  divider: {
-    width: 1,
-    backgroundColor: '#ddd',
-    marginHorizontal: 8,
-  },
-  sizeDistribution: {
-    backgroundColor: '#fff',
-    borderRadius: 6,
-    padding: 10,
-    marginTop: 8,
-  },
-  sizeTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 8,
-  },
   sizeRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
+    marginTop: 16,
   },
   sizeItem: {
     alignItems: 'center',
@@ -440,6 +429,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#666',
     marginBottom: 4,
+    marginTop: 4,
   },
   sizeValue: {
     fontSize: 16,

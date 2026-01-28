@@ -1,10 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import {View, Text, StyleSheet} from 'react-native';
 
 const LEGEND_ITEMS = [
-  { color: 'green', label: 'Not Damaged Green' },
-  { color: 'orange', label: 'Damaged' },
-  { color: 'red', label: 'Not Damaged Red' },
+  {color: 'green', label: 'Not Damaged Green'},
+  {color: 'orange', label: 'Damaged'},
+  {color: 'red', label: 'Not Damaged Red'},
 ];
 
 export const DetectionLegend: React.FC = () => {
@@ -12,7 +12,7 @@ export const DetectionLegend: React.FC = () => {
     <View style={styles.legendRow}>
       {LEGEND_ITEMS.map((item, index) => (
         <View key={index} style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: item.color }]} />
+          <View style={[styles.legendDot, {backgroundColor: item.color}]} />
           <Text style={styles.legendText}>{item.label}</Text>
         </View>
       ))}

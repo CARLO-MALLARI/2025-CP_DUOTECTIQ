@@ -1,6 +1,12 @@
 import {useState, useEffect, useRef, useCallback} from 'react';
 import io, {Socket} from 'socket.io-client';
-import {Detection, DetectionData, CounterData} from '../types/detection.types';
+import {
+  Detection,
+  DetectionData,
+  CounterData,
+  FrozenDetection,
+  CropSummary,
+} from '../types/detection.types';
 import {auth} from '../lib/firebase';
 import {uploadSummaryToFirestore} from '../helpers/firebaseUploadHelper';
 import {
@@ -21,9 +27,13 @@ export const useDetectionSocket = () => {
   const [counters, setCounters] = useState<CounterData | null>(null);
   const [isUsingLocalModel, setIsUsingLocalModel] = useState(false);
   const [localModelReady, setLocalModelReady] = useState(false);
+  const [frozenFrame, setFrozenFrame] = useState<FrozenDetection | null>(null);
+  const [isFrozen, setIsFrozen] = useState(false);
+  const [pendingDetections, setPendingDetections] = useState<Detection[]>([]); // NEW
+
   const socketRef = useRef<Socket | null>(null);
   const currentUrlRef = useRef<string>(sharedStore.serverUrl);
-
+  const currentFrameRef = useRef<string>(''); // Store current frame as base64
   const lastDetectionTimeRef = useRef<number>(Date.now());
   const connectionCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const user = auth.currentUser;
@@ -80,8 +90,27 @@ export const useDetectionSocket = () => {
       socket.on('connect', () => {
         console.log('✅ Socket connected to:', url);
         setConnected(true);
-        setIsUsingLocalModel(false);
       });
+
+      socket.on('connect', () => {
+        console.log('✅ Socket connected to:', url);
+        setConnected(true);
+      });
+
+      socket.on('detections', (data: DetectionData) => {
+        lastDetectionTimeRef.current = Date.now();
+        setDetections(data.detections || []);
+        if (data.counters) setCounters(data.counters);
+      });
+
+      // NEW: Listen for count updates
+      socket.on(
+        'count_updated',
+        (data: {counters: CounterData; summary: any[]; message: string}) => {
+          setCounters(data.counters);
+          console.log('✅', data.message);
+        },
+      );
 
       socket.on('disconnect', reason => {
         console.log('🔌 Socket disconnected from:', url, 'Reason:', reason);
@@ -150,6 +179,16 @@ export const useDetectionSocket = () => {
     [user],
   );
 
+  const countCurrentDetections = useCallback(() => {
+    if (!socketRef.current?.connected || detections.length === 0) {
+      console.warn('⚠️ Not connected or no detections to count');
+      return;
+    }
+
+    console.log('➕ Counting', detections.length, 'detections');
+    socketRef.current.emit('manual_count', {detections});
+  }, [detections]);
+
   // Subscribe to shared store changes and connect
   useEffect(() => {
     connectSocket(sharedStore.serverUrl);
@@ -181,6 +220,31 @@ export const useDetectionSocket = () => {
     socketRef,
     isUsingLocalModel,
     localModelReady,
+    countCurrentDetections,
     resetCounters,
   };
 };
+
+function generateSummaryFromDetections(detections: Detection[]): CropSummary[] {
+  const counts: Record<string, CropSummary> = {};
+
+  detections.forEach(det => {
+    // Create unique key for grouping
+    const key = `${det.crop}_${det.size || 'unknown'}_${det.color}_${
+      det.status
+    }`;
+
+    if (!counts[key]) {
+      counts[key] = {
+        crop: det.crop,
+        type: det.size || 'n/a',
+        color: det.color || 'n/a',
+        status: det.status,
+        amount: 0,
+      };
+    }
+    counts[key].amount += 1;
+  });
+
+  return Object.values(counts);
+}

@@ -45,7 +45,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
       ).start();
     } else {
       blinkOpacity.stopAnimation();
-      blinkOpacity.setValue(1); // reset when detection appears
+      blinkOpacity.setValue(1);
     }
   }, [isStreaming, detections.length]);
 
@@ -107,6 +107,32 @@ export const CameraView: React.FC<CameraViewProps> = ({
         onInitialized={() => setCameraReady(true)}
         onError={err => console.error('Camera error:', err)}
       />
+
+      {/* 4x4 Grid Overlay */}
+      <View style={styles.gridOverlay} pointerEvents="none">
+        {/* Vertical Lines */}
+        {[1, 2, 3].map(i => (
+          <View
+            key={`v-${i}`}
+            style={[
+              styles.gridLine,
+              styles.verticalLine,
+              {left: `${(i * 100) / 4}%`},
+            ]}
+          />
+        ))}
+        {/* Horizontal Lines */}
+        {[1, 2, 3].map(i => (
+          <View
+            key={`h-${i}`}
+            style={[
+              styles.gridLine,
+              styles.horizontalLine,
+              {top: `${(i * 100) / 4}%`},
+            ]}
+          />
+        ))}
+      </View>
 
       {/* Detection Overlay */}
       <DetectionOverlay
@@ -207,5 +233,22 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 11,
+  },
+  // Grid styles
+  gridOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 5,
+  },
+  gridLine: {
+    position: 'absolute',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  verticalLine: {
+    width: 1,
+    height: '100%',
+  },
+  horizontalLine: {
+    height: 1,
+    width: '100%',
   },
 });

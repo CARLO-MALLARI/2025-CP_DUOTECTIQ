@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useCallback } from 'react';
+import React, {useState, useEffect, useCallback} from 'react';
 import {
   View,
   Text,
@@ -12,17 +11,20 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import BottomNavBar from '../components/BottomNavbar';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import BarChartComponent from '../components/BarChart';
 import DateTimePickerModal from 'react-native-modal-datetime-picker';
-import { Picker } from '@react-native-picker/picker';
-import { fetchDashboardData, DashboardData } from '../helpers/firebaseDashboardHelper';
+import {Picker} from '@react-native-picker/picker';
+import {
+  fetchDashboardData,
+  DashboardData,
+} from '../helpers/firebaseDashboardHelper';
 
 type SortOption = 'All' | 'Tomato' | 'Bell Pepper';
 
 const DashboardScreen: React.FC = () => {
   // ---- UI state ----------------------------------------------------
-  const [fromDate, setFromDate] = useState('');               // "mm/dd/yyyy"
+  const [fromDate, setFromDate] = useState(''); // "mm/dd/yyyy"
   const [toDate, setToDate] = useState('');
   const [isFromPickerVisible, setFromPickerVisible] = useState(false);
   const [isToPickerVisible, setToPickerVisible] = useState(false);
@@ -70,7 +72,7 @@ const DashboardScreen: React.FC = () => {
 
   // ---- UI helpers --------------------------------------------------
   const toggleExpand = (key: keyof typeof expanded) => {
-    setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
+    setExpanded(prev => ({...prev, [key]: !prev[key]}));
   };
 
   const handleConfirmFrom = (picked: Date) => {
@@ -85,11 +87,25 @@ const DashboardScreen: React.FC = () => {
   // ---- Render helpers -----------------------------------------------
   const defaultData: DashboardData = {
     totalPieces: 0,
-    byCrop: { Tomato: 0, 'Bell Pepper': 0 },
+    byCrop: {Tomato: 0, 'Bell Pepper': 0},
     byCategory: {
-      green: { total: 0, Tomato: 0, 'Bell Pepper': 0, small: 0, medium: 0, large: 0 },
-      red:   { total: 0, Tomato: 0, 'Bell Pepper': 0, small: 0, medium: 0, large: 0 },
-      damaged: { total: 0, Tomato: 0, 'Bell Pepper': 0 },
+      green: {
+        total: 0,
+        Tomato: 0,
+        'Bell Pepper': 0,
+        small: 0,
+        medium: 0,
+        large: 0,
+      },
+      red: {
+        total: 0,
+        Tomato: 0,
+        'Bell Pepper': 0,
+        small: 0,
+        medium: 0,
+        large: 0,
+      },
+      damaged: {total: 0, Tomato: 0, 'Bell Pepper': 0},
     },
   };
 
@@ -123,29 +139,37 @@ const DashboardScreen: React.FC = () => {
             'Bell Pepper': data.byCategory?.damaged?.['Bell Pepper'] ?? 0,
           },
         },
+        byWeek: data.byWeek ?? [],
       }
     : defaultData;
 
   const showTomato = sortBy === 'All' || sortBy === 'Tomato';
-  const showBell   = sortBy === 'All' || sortBy === 'Bell Pepper';
+  const showBell = sortBy === 'All' || sortBy === 'Bell Pepper';
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.wrapper}>
-        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}>
           {/* ===== Dashboard Overview ===== */}
           <Text style={styles.sectionTitle}>Dashboard Overview</Text>
 
           <View style={styles.cardContainer}>
             <View style={styles.card}>
-              <Ionicons style={styles.cardIcon} name="settings-outline" size={32} color="#555" />
+              <Ionicons
+                style={styles.cardIcon}
+                name="settings-outline"
+                size={32}
+                color="#555"
+              />
               <Text style={styles.cardTitle}>System Status</Text>
-              <Text style={[styles.cardValue, { color: 'green' }]}>Online</Text>
+              <Text style={[styles.cardValue, {color: 'green'}]}>Online</Text>
             </View>
 
             <View style={styles.card}>
               <Ionicons name="trending-up-outline" size={32} color="#555" />
-              <Text style={[styles.cardValue, { color: 'green' }]}>
+              <Text style={[styles.cardValue, {color: 'green'}]}>
                 {d.totalPieces}
               </Text>
               <Text style={styles.cardTitle}>Total crops sorted (Latest)</Text>
@@ -158,7 +182,9 @@ const DashboardScreen: React.FC = () => {
           {/* Filters Row */}
           <View style={styles.filterRow}>
             <Text style={styles.filterLabel}>From:</Text>
-            <TouchableOpacity style={styles.datePicker} onPress={() => setFromPickerVisible(true)}>
+            <TouchableOpacity
+              style={styles.datePicker}
+              onPress={() => setFromPickerVisible(true)}>
               <TextInput
                 style={styles.dateText}
                 placeholder="mm/dd/yyyy"
@@ -170,7 +196,9 @@ const DashboardScreen: React.FC = () => {
             </TouchableOpacity>
 
             <Text style={styles.filterLabel}>To:</Text>
-            <TouchableOpacity style={styles.datePicker} onPress={() => setToPickerVisible(true)}>
+            <TouchableOpacity
+              style={styles.datePicker}
+              onPress={() => setToPickerVisible(true)}>
               <TextInput
                 style={styles.dateText}
                 placeholder="mm/dd/yyyy"
@@ -188,8 +216,7 @@ const DashboardScreen: React.FC = () => {
                 onValueChange={(v: any) => setSortBy(v as SortOption)}
                 mode="dropdown"
                 dropdownIconColor="transparent"
-                style={{ fontSize: 11 }}
-              >
+                style={{fontSize: 11}}>
                 <Picker.Item label="All" value="All" />
                 <Picker.Item label="Tomato" value="Tomato" />
                 <Picker.Item label="Bell Pepper" value="Bell Pepper" />
@@ -207,53 +234,98 @@ const DashboardScreen: React.FC = () => {
 
           {/* Summary Table */}
           {loading ? (
-            <ActivityIndicator style={{ marginTop: 20 }} />
+            <ActivityIndicator style={{marginTop: 20}} />
           ) : (
             <View style={styles.table}>
               {/* Header */}
               <View style={styles.tableHeader}>
-                <Text style={[styles.cell, styles.headerCell, { flex: 2 }]}>Category</Text>
+                <Text style={[styles.cell, styles.headerCell, {flex: 2}]}>
+                  Category
+                </Text>
                 <Text style={[styles.cell, styles.headerCell]}>Tomato</Text>
-                <Text style={[styles.cell, styles.headerCell]}>Bell Pepper</Text>
+                <Text style={[styles.cell, styles.headerCell]}>
+                  Bell Pepper
+                </Text>
                 <Text style={[styles.cell, styles.headerCell]}>Total</Text>
               </View>
 
               {/* // ---------- GREEN ----------  */}
-              <TouchableOpacity style={styles.tableRow} onPress={() => toggleExpand('green')}>
-                <Text style={[styles.cell, { flex: 2 }]}>
-                  {expanded.green ? "🔽" : "▶"} Not Damaged – Green
+              <TouchableOpacity
+                style={styles.tableRow}
+                onPress={() => toggleExpand('green')}>
+                <Text style={[styles.cell, {flex: 2}]}>
+                  {expanded.green ? '🔽' : '▶'} Not Damaged – Green
                 </Text>
-                <Text style={styles.cell}>{showTomato ? d.byCategory.green.Tomato : 0}</Text>
-                <Text style={styles.cell}>{showBell ? d.byCategory.green['Bell Pepper'] : 0}</Text>
                 <Text style={styles.cell}>
-                  {showTomato && showBell 
-                    ? d.byCategory.green.total 
-                    : (showTomato ? d.byCategory.green.Tomato : (showBell ? d.byCategory.green['Bell Pepper'] : 0))
-                  }
+                  {showTomato ? d.byCategory.green.Tomato : 0}
+                </Text>
+                <Text style={styles.cell}>
+                  {showBell ? d.byCategory.green['Bell Pepper'] : 0}
+                </Text>
+                <Text style={styles.cell}>
+                  {showTomato && showBell
+                    ? d.byCategory.green.total
+                    : showTomato
+                    ? d.byCategory.green.Tomato
+                    : showBell
+                    ? d.byCategory.green['Bell Pepper']
+                    : 0}
                 </Text>
               </TouchableOpacity>
 
               {expanded.green && (
                 <>
                   <View style={styles.subRow}>
-                    <Text style={[styles.subCell, { flex: 2 }]}>Small</Text>
-                    <Text style={styles.subCell}>{showTomato ? (d.byCategory.green.Tomato > 0 ? d.byCategory.green.small : 0) : 0}</Text>
-                    <Text style={styles.subCell}>{showBell ? (d.byCategory.green['Bell Pepper'] > 0 ? d.byCategory.green.small : 0) : 0}</Text>
-                    <Text style={styles.subCell}>-</Text>
-                  </View>
-                  <View style={styles.subRow}>
-                    <Text style={[styles.subCell, { flex: 2 }]}>Medium</Text>
-                    <Text style={styles.subCell}>{showTomato ? (d.byCategory.green.Tomato > 0 ? d.byCategory.green.medium : 0) : 0}</Text>
-                    <Text style={styles.subCell}>{showBell ? (d.byCategory.green['Bell Pepper'] > 0 ? d.byCategory.green.medium : 0) : 0}</Text>
-                    <Text style={styles.subCell}>-</Text>
-                  </View>
-                  <View style={styles.subRow}>
-                    <Text style={[styles.subCell, { flex: 2 }]}>Large</Text>
+                    <Text style={[styles.subCell, {flex: 2}]}>Small</Text>
                     <Text style={styles.subCell}>
-                      {showTomato ? (d.byCategory.green.Tomato > 0 ? d.byCategory.green.large : 0) : 0}
+                      {showTomato
+                        ? d.byCategory.green.Tomato > 0
+                          ? d.byCategory.green.small
+                          : 0
+                        : 0}
                     </Text>
                     <Text style={styles.subCell}>
-                      {showBell ? (d.byCategory.green['Bell Pepper'] > 0 ? d.byCategory.green.large : 0) : 0}
+                      {showBell
+                        ? d.byCategory.green['Bell Pepper'] > 0
+                          ? d.byCategory.green.small
+                          : 0
+                        : 0}
+                    </Text>
+                    <Text style={styles.subCell}>-</Text>
+                  </View>
+                  <View style={styles.subRow}>
+                    <Text style={[styles.subCell, {flex: 2}]}>Medium</Text>
+                    <Text style={styles.subCell}>
+                      {showTomato
+                        ? d.byCategory.green.Tomato > 0
+                          ? d.byCategory.green.medium
+                          : 0
+                        : 0}
+                    </Text>
+                    <Text style={styles.subCell}>
+                      {showBell
+                        ? d.byCategory.green['Bell Pepper'] > 0
+                          ? d.byCategory.green.medium
+                          : 0
+                        : 0}
+                    </Text>
+                    <Text style={styles.subCell}>-</Text>
+                  </View>
+                  <View style={styles.subRow}>
+                    <Text style={[styles.subCell, {flex: 2}]}>Large</Text>
+                    <Text style={styles.subCell}>
+                      {showTomato
+                        ? d.byCategory.green.Tomato > 0
+                          ? d.byCategory.green.large
+                          : 0
+                        : 0}
+                    </Text>
+                    <Text style={styles.subCell}>
+                      {showBell
+                        ? d.byCategory.green['Bell Pepper'] > 0
+                          ? d.byCategory.green.large
+                          : 0
+                        : 0}
                     </Text>
                     <Text style={styles.subCell}>-</Text>
                   </View>
@@ -261,41 +333,82 @@ const DashboardScreen: React.FC = () => {
               )}
 
               {/* // ---------- RED ----------  */}
-              <TouchableOpacity style={styles.tableRow} onPress={() => toggleExpand('red')}>
-                <Text style={[styles.cell, { flex: 2 }]}>
-                  {expanded.red ? "🔽" : "▶"} Not Damaged – Red
+              <TouchableOpacity
+                style={styles.tableRow}
+                onPress={() => toggleExpand('red')}>
+                <Text style={[styles.cell, {flex: 2}]}>
+                  {expanded.red ? '🔽' : '▶'} Not Damaged – Red
                 </Text>
-                <Text style={styles.cell}>{showTomato ? d.byCategory.red.Tomato : 0}</Text>
-                <Text style={styles.cell}>{showBell ? d.byCategory.red['Bell Pepper'] : 0}</Text>
                 <Text style={styles.cell}>
-                  {showTomato && showBell 
-                    ? d.byCategory.red.total 
-                    : (showTomato ? d.byCategory.red.Tomato : (showBell ? d.byCategory.red['Bell Pepper'] : 0))
-                  }
+                  {showTomato ? d.byCategory.red.Tomato : 0}
+                </Text>
+                <Text style={styles.cell}>
+                  {showBell ? d.byCategory.red['Bell Pepper'] : 0}
+                </Text>
+                <Text style={styles.cell}>
+                  {showTomato && showBell
+                    ? d.byCategory.red.total
+                    : showTomato
+                    ? d.byCategory.red.Tomato
+                    : showBell
+                    ? d.byCategory.red['Bell Pepper']
+                    : 0}
                 </Text>
               </TouchableOpacity>
 
               {expanded.red && (
                 <>
                   <View style={styles.subRow}>
-                    <Text style={[styles.subCell, { flex: 2 }]}>Small</Text>
-                    <Text style={styles.subCell}>{showTomato ? (d.byCategory.red.Tomato > 0 ? d.byCategory.red.small : 0) : 0}</Text>
-                    <Text style={styles.subCell}>{showBell ? (d.byCategory.red['Bell Pepper'] > 0 ? d.byCategory.red.small : 0) : 0}</Text>
-                    <Text style={styles.subCell}>-</Text>
-                  </View>
-                  <View style={styles.subRow}>
-                    <Text style={[styles.subCell, { flex: 2 }]}>Medium</Text>
-                    <Text style={styles.subCell}>{showTomato ? (d.byCategory.red.Tomato > 0 ? d.byCategory.red.medium : 0) : 0}</Text>
-                    <Text style={styles.subCell}>{showBell ? (d.byCategory.red['Bell Pepper'] > 0 ? d.byCategory.red.medium : 0) : 0}</Text>
-                    <Text style={styles.subCell}>-</Text>
-                  </View>
-                  <View style={styles.subRow}>
-                    <Text style={[styles.subCell, { flex: 2 }]}>Large</Text>
+                    <Text style={[styles.subCell, {flex: 2}]}>Small</Text>
                     <Text style={styles.subCell}>
-                      {showTomato ? (d.byCategory.red.Tomato > 0 ? d.byCategory.red.large : 0) : 0}
+                      {showTomato
+                        ? d.byCategory.red.Tomato > 0
+                          ? d.byCategory.red.small
+                          : 0
+                        : 0}
                     </Text>
                     <Text style={styles.subCell}>
-                      {showBell ? (d.byCategory.red['Bell Pepper'] > 0 ? d.byCategory.red.large : 0) : 0}
+                      {showBell
+                        ? d.byCategory.red['Bell Pepper'] > 0
+                          ? d.byCategory.red.small
+                          : 0
+                        : 0}
+                    </Text>
+                    <Text style={styles.subCell}>-</Text>
+                  </View>
+                  <View style={styles.subRow}>
+                    <Text style={[styles.subCell, {flex: 2}]}>Medium</Text>
+                    <Text style={styles.subCell}>
+                      {showTomato
+                        ? d.byCategory.red.Tomato > 0
+                          ? d.byCategory.red.medium
+                          : 0
+                        : 0}
+                    </Text>
+                    <Text style={styles.subCell}>
+                      {showBell
+                        ? d.byCategory.red['Bell Pepper'] > 0
+                          ? d.byCategory.red.medium
+                          : 0
+                        : 0}
+                    </Text>
+                    <Text style={styles.subCell}>-</Text>
+                  </View>
+                  <View style={styles.subRow}>
+                    <Text style={[styles.subCell, {flex: 2}]}>Large</Text>
+                    <Text style={styles.subCell}>
+                      {showTomato
+                        ? d.byCategory.red.Tomato > 0
+                          ? d.byCategory.red.large
+                          : 0
+                        : 0}
+                    </Text>
+                    <Text style={styles.subCell}>
+                      {showBell
+                        ? d.byCategory.red['Bell Pepper'] > 0
+                          ? d.byCategory.red.large
+                          : 0
+                        : 0}
                     </Text>
                     <Text style={styles.subCell}>-</Text>
                   </View>
@@ -304,18 +417,34 @@ const DashboardScreen: React.FC = () => {
 
               {/* ---------- DAMAGED ---------- */}
               <View style={styles.tableRow}>
-                <Text style={[styles.cell, { flex: 2 }]}>Damaged</Text>
-                <Text style={styles.cell}>{showTomato ? d.byCategory.damaged.Tomato : 0}</Text>
-                <Text style={styles.cell}>{showBell ? d.byCategory.damaged['Bell Pepper'] : 0}</Text>
+                <Text style={[styles.cell, {flex: 2}]}>Damaged</Text>
+                <Text style={styles.cell}>
+                  {showTomato ? d.byCategory.damaged.Tomato : 0}
+                </Text>
+                <Text style={styles.cell}>
+                  {showBell ? d.byCategory.damaged['Bell Pepper'] : 0}
+                </Text>
                 <Text style={styles.cell}>{d.byCategory.damaged.total}</Text>
               </View>
 
               {/* ---------- FOOTER ---------- */}
-              <View style={[styles.tableRow, { borderTopWidth: 1, borderColor: '#ccc' }]}>
-                <Text style={[styles.cell, { flex: 2, fontWeight: 'bold' }]}>Total Pieces</Text>
-                <Text style={[styles.cell, { fontWeight: 'bold' }]}>{d.byCrop.Tomato}</Text>
-                <Text style={[styles.cell, { fontWeight: 'bold' }]}>{d.byCrop['Bell Pepper']}</Text>
-                <Text style={[styles.cell, { fontWeight: 'bold' }]}>{d.totalPieces}</Text>
+              <View
+                style={[
+                  styles.tableRow,
+                  {borderTopWidth: 1, borderColor: '#ccc'},
+                ]}>
+                <Text style={[styles.cell, {flex: 2, fontWeight: 'bold'}]}>
+                  Total Pieces
+                </Text>
+                <Text style={[styles.cell, {fontWeight: 'bold'}]}>
+                  {d.byCrop.Tomato}
+                </Text>
+                <Text style={[styles.cell, {fontWeight: 'bold'}]}>
+                  {d.byCrop['Bell Pepper']}
+                </Text>
+                <Text style={[styles.cell, {fontWeight: 'bold'}]}>
+                  {d.totalPieces}
+                </Text>
               </View>
             </View>
           )}
@@ -323,7 +452,7 @@ const DashboardScreen: React.FC = () => {
           <BarChartComponent data={d} />
 
           {/* bottom padding */}
-          <View style={{ height: 80 }} />
+          <View style={{height: 80}} />
         </ScrollView>
 
         <BottomNavBar />
@@ -348,11 +477,21 @@ const DashboardScreen: React.FC = () => {
 
 /* ---------- Styles (unchanged) ---------- */
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#f4f4f4' },
-  wrapper: { flex: 1 },
-  container: { padding: 10, backgroundColor: '#f4f4f4', flexGrow: 1 },
-  sectionTitle: { fontSize: 22, fontWeight: '700', marginBottom: 16, marginTop: 10 },
-  cardContainer: { flexDirection: 'row', justifyContent: 'space-evenly', flexWrap: 'wrap', marginBottom: 24 },
+  safeArea: {flex: 1, backgroundColor: '#f4f4f4'},
+  wrapper: {flex: 1},
+  container: {padding: 10, backgroundColor: '#f4f4f4', flexGrow: 1},
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 16,
+    marginTop: 10,
+  },
+  cardContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-evenly',
+    flexWrap: 'wrap',
+    marginBottom: 24,
+  },
   card: {
     width: '40%',
     backgroundColor: '#fff',
@@ -364,9 +503,9 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 3,
   },
-  cardIcon: { textAlign: 'center', marginTop: 15 },
-  cardTitle: { fontSize: 12, color: '#333', alignSelf: 'center', marginTop: 5 },
-  cardValue: { fontSize: 20, fontWeight: '600', marginTop: 1 },
+  cardIcon: {textAlign: 'center', marginTop: 15},
+  cardTitle: {fontSize: 12, color: '#333', alignSelf: 'center', marginTop: 5},
+  cardValue: {fontSize: 20, fontWeight: '600', marginTop: 1},
 
   datePicker: {
     flexDirection: 'row',
@@ -389,7 +528,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     justifyContent: 'center',
   },
-  dateText: { flex: 1, color: '#333', fontSize: 9 },
+  dateText: {flex: 1, color: '#333', fontSize: 9},
   filterRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -398,7 +537,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     gap: 4,
   },
-  filterLabel: { fontSize: 11, color: '#333' },
+  filterLabel: {fontSize: 11, color: '#333'},
   filterBtn: {
     backgroundColor: '#007a33',
     borderRadius: 4,
@@ -417,12 +556,17 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.1,
   },
-  tableHeader: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#ddd', paddingVertical: 6 },
-  headerCell: { fontWeight: 'bold', color: '#333' },
-  tableRow: { flexDirection: 'row', paddingVertical: 6 },
-  subRow: { flexDirection: 'row', paddingLeft: 20, paddingVertical: 4 },
-  cell: { flex: 1, textAlign: 'center', color: '#333' },
-  subCell: { flex: 1, textAlign: 'center', color: '#666', fontSize: 13 },
+  tableHeader: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderColor: '#ddd',
+    paddingVertical: 6,
+  },
+  headerCell: {fontWeight: 'bold', color: '#333'},
+  tableRow: {flexDirection: 'row', paddingVertical: 6},
+  subRow: {flexDirection: 'row', paddingLeft: 20, paddingVertical: 4},
+  cell: {flex: 1, textAlign: 'center', color: '#333'},
+  subCell: {flex: 1, textAlign: 'center', color: '#666', fontSize: 13},
 });
 
 export default DashboardScreen;
