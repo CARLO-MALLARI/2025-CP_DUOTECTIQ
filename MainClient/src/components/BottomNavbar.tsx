@@ -1,7 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Animated, View, TouchableOpacity, Text, StyleSheet } from 'react-native';
-import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import React, {useEffect, useRef, useState} from 'react';
+import {Animated, View, TouchableOpacity, Text, StyleSheet} from 'react-native';
+import {
+  useNavigation,
+  useRoute,
+  type RouteProp,
+} from '@react-navigation/native';
+import type {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 
 type RootStackParamList = {
@@ -11,7 +15,11 @@ type RootStackParamList = {
   OverviewScreen: undefined;
 };
 
-type BottomNavRoute = 'Scan' | 'DashboardScreen' | 'SortingHistoryScreen' | 'OverviewScreen';
+type BottomNavRoute =
+  | 'Scan'
+  | 'DashboardScreen'
+  | 'SortingHistoryScreen'
+  | 'OverviewScreen';
 
 interface NavItem {
   name: BottomNavRoute;
@@ -20,20 +28,25 @@ interface NavItem {
 }
 
 export const navItems: NavItem[] = [
-  { name: 'Scan', label: 'Sorting', icon: 'stats-chart-outline' },
-  { name: 'DashboardScreen', label: 'Dashboard', icon: 'speedometer-outline' },
-  { name: 'SortingHistoryScreen', label: 'Sorting History', icon: 'time-outline' },
-  { name: 'OverviewScreen', label: 'Overview', icon: 'person-outline' },
+  {name: 'Scan', label: 'Sorting', icon: 'stats-chart-outline'},
+  {name: 'DashboardScreen', label: 'Dashboard', icon: 'speedometer-outline'},
+  {
+    name: 'SortingHistoryScreen',
+    label: 'Sorting History',
+    icon: 'time-outline',
+  },
+  {name: 'OverviewScreen', label: 'Overview', icon: 'person-outline'},
 ];
 
 interface BottomNavBarProps {
   isDarkMode?: boolean;
 }
 
-const BottomNavBar: React.FC<BottomNavBarProps> = ({ isDarkMode = false }) => {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+const BottomNavBar: React.FC<BottomNavBarProps> = ({isDarkMode = false}) => {
+  const navigation =
+    useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, BottomNavRoute>>();
-  
+
   const activeColor = '#25ebb6ff';
   const inactiveColor = isDarkMode ? '#9CA3AF' : '#fff';
   const backgroundColor = isDarkMode ? '#1F2937' : '#578534ff';
@@ -70,7 +83,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ isDarkMode = false }) => {
     inputRange: [0, 1],
     outputRange: [0, 80],
   });
-  
+
   const isActive = (routeName: string) => {
     return route.name === routeName;
   };
@@ -98,11 +111,10 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ isDarkMode = false }) => {
       <Animated.View
         style={[
           styles.container,
-          { transform: [{ translateY }] },
-          { backgroundColor, borderTopColor: borderColor }
-        ]}
-      >
-        {navItems.map((item) => {
+          {transform: [{translateY}]},
+          {backgroundColor, borderTopColor: borderColor},
+        ]}>
+        {navItems.map(item => {
           const active = isActive(item.name);
           const color = active ? '#fff' : '#aaa';
 
@@ -114,13 +126,12 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({ isDarkMode = false }) => {
                 handlePress(item.name);
                 showNav(); // bring it back when user interacts
               }}
-              activeOpacity={0.7}
-            >
+              activeOpacity={0.7}>
               <View style={styles.iconContainer}>
                 <Ionicons name={item.icon} size={24} color="#fff" />
                 {active && <View style={styles.activeDot} />}
               </View>
-              <Text style={[styles.label, { color }]}>{item.label}</Text>
+              <Text style={[styles.label, {color}]}>{item.label}</Text>
             </TouchableOpacity>
           );
         })}
@@ -141,6 +152,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     backgroundColor: '#222',
     elevation: 8,
+    zIndex: 999,
   },
   navItem: {
     flex: 1,
@@ -167,14 +179,15 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 5,
     left: '50%',
-    transform: [{ translateX: -15 }],
+    transform: [{translateX: -15}],
     backgroundColor: '#337a00ff',
     width: 40,
     height: 25,
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 6
+    elevation: 6,
+    zIndex: 999,
   },
 });
 

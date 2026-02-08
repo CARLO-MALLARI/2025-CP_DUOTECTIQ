@@ -3,20 +3,47 @@ from flask_socketio import SocketIO, emit
 from ultralytics import YOLO
 import cv2, base64, numpy as np
 import torch
+from collections import defaultdict
+import uuid
 
 app = Flask(__name__)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model = YOLO("best.pt").to(device)
+model = YOLO("v8s.pt").to(device)
 
 print("🔥 Using device:", device)
 print("✅ Model loaded successfully with classes:", model.names)
 
-CONF_THRESHOLD = 0.6
+CONF_THRESHOLD = 0.8
+IOU_THRESHOLD = 0.2  
+MAX_FRAMES_LOST = 1  
 
-# Store counters per client session
 session_counters = {}
+session_tracked_objects = {}
+
+def calculate_iou(box1, box2):
+    """Calculate Intersection over Union between two bounding boxes"""
+    x1_min, y1_min, x1_max, y1_max = box1
+    x2_min, y2_min, x2_max, y2_max = box2
+    
+    # Intersection area
+    inter_x_min = max(x1_min, x2_min)
+    inter_y_min = max(y1_min, y2_min)
+    inter_x_max = min(x1_max, x2_max)
+    inter_y_max = min(y1_max, y2_max)
+    
+    if inter_x_max < inter_x_min or inter_y_max < inter_y_min:
+        return 0.0
+    
+    inter_area = (inter_x_max - inter_x_min) * (inter_y_max - inter_y_min)
+    
+    # Union area
+    box1_area = (x1_max - x1_min) * (y1_max - y1_min)
+    box2_area = (x2_max - x2_min) * (y2_max - y2_min)
+    union_area = box1_area + box2_area - inter_area
+    
+    return inter_area / union_area if union_area > 0 else 0.0
 
 def create_empty_counter():
     return {
@@ -74,6 +101,54 @@ def parse_class_name(class_name: str):
     
     return crop, color, size, is_damaged
 
+class TrackedObject:
+    def __init__(self, object_id, bbox, class_name, confidence, crop, color, size, is_damaged):
+        self.id = object_id
+        self.bbox = bbox
+        self.class_name = class_name
+        self.initial_confidence = confidence  # Store initial confidence
+        self.crop = crop
+        self.color = color
+        self.size = size
+        self.is_damaged = is_damaged
+        self.frames_lost = 0
+        self.counted = False  # Track if already counted
+    
+    def update(self, bbox):
+        """Update position when re-detected"""
+        self.bbox = bbox
+        self.frames_lost = 0
+    
+    def mark_lost(self):
+        """Increment lost frame counter"""
+        self.frames_lost += 1
+    
+    def is_lost(self, max_frames):
+        """Check if object should be removed"""
+        return self.frames_lost > max_frames
+
+def match_detections_to_tracked(detections, tracked_objects, iou_threshold):
+    """Match current detections to tracked objects using IoU"""
+    matched = {}
+    unmatched_detections = []
+    
+    for det_idx, det in enumerate(detections):
+        best_iou = 0
+        best_track_id = None
+        
+        for track_id, tracked in tracked_objects.items():
+            iou = calculate_iou(det['bbox'], tracked.bbox)
+            if iou > best_iou and iou > iou_threshold:
+                best_iou = iou
+                best_track_id = track_id
+        
+        if best_track_id:
+            matched[det_idx] = best_track_id
+        else:
+            unmatched_detections.append(det_idx)
+    
+    return matched, unmatched_detections
+
 @app.route('/')
 def index():
     return "✅ Flask YOLO WebSocket Server is running!"
@@ -82,6 +157,7 @@ def index():
 def handle_connect():
     sid = request.sid
     session_counters[sid] = create_empty_counter()
+    session_tracked_objects[sid] = {}
     print(f"📡 Client connected: {sid}")
 
 @socketio.on('disconnect')
@@ -89,6 +165,8 @@ def handle_disconnect():
     sid = request.sid
     if sid in session_counters:
         session_counters.pop(sid)
+    if sid in session_tracked_objects:
+        session_tracked_objects.pop(sid)
     print(f"❌ Client disconnected: {sid}")
 
 @socketio.on('frame')
@@ -104,12 +182,12 @@ def handle_frame(data):
             emit('error', {'message': 'Invalid image data'})
             return
         
-        # Just detect, don't count
+        # Detect objects
         results = model.predict(img, conf=CONF_THRESHOLD, verbose=False)
         boxes = results[0].boxes
         
-        detections = []
-        
+        # Parse detections
+        current_detections = []
         for box in boxes:
             conf = float(box.conf)
             if conf < CONF_THRESHOLD:
@@ -122,70 +200,144 @@ def handle_frame(data):
             detection = {
                 "bbox": box.xyxy.tolist()[0],
                 "class": class_name,
-                "confidence": round(conf, 3),
+                "confidence": conf,
                 "crop": crop,
-                "color": color.capitalize() if color != "damaged" else "Unknown",
-                "size": size.capitalize() if size != "unknown" else None,
-                "status": "Damaged" if is_damaged else "Good"
+                "color": color,
+                "size": size,
+                "is_damaged": is_damaged
             }
-            detections.append(detection)
+            current_detections.append(detection)
         
-        # Get current counter (without incrementing)
+        # Get tracked objects for this session
+        tracked_objects = session_tracked_objects.setdefault(sid, {})
+        
+        # Match detections to tracked objects
+        matched, unmatched = match_detections_to_tracked(
+            current_detections, tracked_objects, IOU_THRESHOLD
+        )
+        
+        # Update matched objects
+        active_track_ids = set()
+        for det_idx, track_id in matched.items():
+            det = current_detections[det_idx]
+            tracked_objects[track_id].update(det['bbox'])
+            active_track_ids.add(track_id)
+        
+        # Create new tracked objects for unmatched detections
+        for det_idx in unmatched:
+            det = current_detections[det_idx]
+            new_id = str(uuid.uuid4())[:8]
+            
+            tracked_objects[new_id] = TrackedObject(
+                object_id=new_id,
+                bbox=det['bbox'],
+                class_name=det['class'],
+                confidence=det['confidence'],
+                crop=det['crop'],
+                color=det['color'],
+                size=det['size'],
+                is_damaged=det['is_damaged']
+            )
+            active_track_ids.add(new_id)
+            print(f"🆕 New object tracked: {new_id} - {det['class']} @ {det['confidence']:.2f}")
+        
+        # Mark lost objects and remove if lost too long
+        to_remove = []
+        for track_id, tracked in tracked_objects.items():
+            if track_id not in active_track_ids:
+                tracked.mark_lost()
+                if tracked.is_lost(MAX_FRAMES_LOST):
+                    to_remove.append(track_id)
+                    print(f"🗑️ Removing lost object: {track_id}")
+        
+        for track_id in to_remove:
+            del tracked_objects[track_id]
+        
+        # Prepare response with tracked objects
+        detections_with_tracking = []
+        for track_id, tracked in tracked_objects.items():
+            detections_with_tracking.append({
+                "id": track_id,
+                "bbox": tracked.bbox,
+                "class": tracked.class_name,
+                "confidence": round(tracked.initial_confidence, 3),  # Use initial confidence!
+                "crop": tracked.crop,
+                "color": tracked.color.capitalize() if tracked.color != "damaged" else "Unknown",
+                "size": tracked.size.capitalize() if tracked.size != "unknown" else None,
+                "status": "Damaged" if tracked.is_damaged else "Good",
+                "counted": tracked.counted,
+                "frames_lost": tracked.frames_lost
+            })
+        
         counter = session_counters.setdefault(sid, create_empty_counter())
         summary = summarize_counters(counter)
         
         emit('detections', {
-            'detections': detections,
+            'detections': detections_with_tracking,
             'counters': counter,
             'summary': summary,
-            'image_size': {'width': 640, 'height': 640}
+            'image_size': {'width': 640, 'height': 640},
+            'tracked_count': len(tracked_objects)
         })
     
     except Exception as e:
         print("Error:", e)
+        import traceback
+        traceback.print_exc()
         emit('error', {'message': str(e)})
 
 @socketio.on('manual_count')
 def handle_manual_count(data):
-    """Count specific detections manually"""
+    """Count specific detections manually by their tracking ID"""
     sid = request.sid
-    detections_to_count = data.get('detections', [])
+    detection_ids = data.get('detection_ids', [])
     
     counter = session_counters.setdefault(sid, create_empty_counter())
+    tracked_objects = session_tracked_objects.get(sid, {})
     
-    print(f"➕ Manual count request for {len(detections_to_count)} detections")
+    print(f"➕ Manual count request for IDs: {detection_ids}")
     
-    for det in detections_to_count:
-        crop = det.get('crop')
-        color = det.get('color', '').lower()
-        size = det.get('size', '').lower() if det.get('size') else 'unknown'
-        is_damaged = det.get('status') == 'Damaged'
-        
-        if crop in counter:
-            if is_damaged:
-                counter[crop]["total"]["damaged"] += 1
-                print(f"  ✓ {crop} damaged +1")
-            else:
-                counter[crop]["total"][color] += 1
-                if size != "unknown" and size in counter[crop]:
-                    counter[crop][size][color] += 1
-                print(f"  ✓ {crop} {size} {color} +1")
+    counted = 0
+    for det_id in detection_ids:
+        if det_id in tracked_objects:
+            tracked = tracked_objects[det_id]
+            
+            # Only count if not already counted
+            if not tracked.counted:
+                crop = tracked.crop
+                color = tracked.color
+                size = tracked.size
+                is_damaged = tracked.is_damaged
+                
+                if crop in counter:
+                    if is_damaged:
+                        counter[crop]["total"]["damaged"] += 1
+                        print(f"  ✓ {crop} damaged +1 (ID: {det_id})")
+                    else:
+                        counter[crop]["total"][color] += 1
+                        if size != "unknown" and size in counter[crop]:
+                            counter[crop][size][color] += 1
+                        print(f"  ✓ {crop} {size} {color} +1 (ID: {det_id})")
+                    
+                    tracked.counted = True
+                    counted += 1
     
     summary = summarize_counters(counter)
     
     emit('count_updated', {
         'counters': counter,
         'summary': summary,
-        'message': f'Counted {len(detections_to_count)} items'
+        'message': f'Counted {counted} new items'
     })
-    print(f"✅ Manual count completed for session {sid}")
+    print(f"✅ Manual count completed: {counted} items")
 
 @socketio.on('reset_counters')
 def handle_reset():
     sid = request.sid
     session_counters[sid] = create_empty_counter()
-    emit('counters_reset', {'message': 'Counters reset successfully'})
-    print(f"🔄 Counters reset for session {sid}")
+    session_tracked_objects[sid] = {} 
+    emit('counters_reset', {'message': 'Counters and tracking reset successfully'})
+    print(f"🔄 Counters and tracking reset for session {sid}")
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=5000, debug=False, 

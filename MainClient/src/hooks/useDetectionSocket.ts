@@ -185,8 +185,18 @@ export const useDetectionSocket = () => {
       return;
     }
 
-    console.log('➕ Counting', detections.length, 'detections');
-    socketRef.current.emit('manual_count', {detections});
+    // Extract IDs from detections that haven't been counted yet
+    const detectionIds = detections
+      .filter(det => det.id && !det.counted) // Only uncounted objects
+      .map(det => det.id as string);
+
+    if (detectionIds.length === 0) {
+      console.warn('⚠️ All objects already counted');
+      return;
+    }
+
+    console.log('➕ Counting', detectionIds.length, 'detections by ID');
+    socketRef.current.emit('manual_count', {detection_ids: detectionIds}); // CHANGED
   }, [detections]);
 
   // Subscribe to shared store changes and connect

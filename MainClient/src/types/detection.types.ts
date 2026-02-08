@@ -8,6 +8,9 @@ export interface Detection {
   size: string | null; // "Small" | "Medium" | "Large" | null
   status: string; // "Good" | "Damaged"
   is_new?: boolean;
+  id?: string; // ADD: Tracking ID
+  counted?: boolean; // ADD: Whether already counted
+  frames_lost?: number; // ADD: Tracking health indicator
 }
 
 export interface DetectionData {

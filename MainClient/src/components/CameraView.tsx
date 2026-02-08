@@ -1,5 +1,12 @@
 import React, {useState, useRef, useEffect} from 'react';
-import {View, Text, TouchableOpacity, StyleSheet, Animated} from 'react-native';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Animated,
+  Alert,
+} from 'react-native';
 import {Camera, CameraDevice} from 'react-native-vision-camera';
 import {Detection} from '../types/detection.types';
 import {DetectionOverlay} from './DetectionOverlay';
@@ -49,6 +56,24 @@ export const CameraView: React.FC<CameraViewProps> = ({
     }
   }, [isStreaming, detections.length]);
 
+  const handleResetPress = () => {
+    if (!onReset) return;
+
+    Alert.alert(
+      'Reset detection?',
+      'This will clear all current detections. Are you sure?',
+      [
+        {text: 'Cancel', style: 'cancel'},
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: () => onReset(),
+        },
+      ],
+      {cancelable: true},
+    );
+  };
+
   return (
     <View
       style={styles.cameraContainer}
@@ -70,7 +95,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
 
       {/* Reset Button */}
       {onReset && isStreaming && (
-        <TouchableOpacity onPress={onReset} style={styles.resetButton}>
+        <TouchableOpacity onPress={handleResetPress} style={styles.resetButton}>
           <Text style={styles.resetButtonText}>🔄 Reset</Text>
         </TouchableOpacity>
       )}

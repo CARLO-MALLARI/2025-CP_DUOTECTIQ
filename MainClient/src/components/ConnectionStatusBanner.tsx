@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import {View, Text, StyleSheet} from 'react-native';
 
 interface ConnectionStatusBannerProps {
   connected: boolean;
@@ -8,11 +8,11 @@ interface ConnectionStatusBannerProps {
   localReady?: boolean;
 }
 
-export const ConnectionStatusBanner: React.FC<ConnectionStatusBannerProps> = ({ 
-  connected, 
+export const ConnectionStatusBanner: React.FC<ConnectionStatusBannerProps> = ({
+  connected,
   stale,
   isLocal = false,
-  localReady = false
+  localReady = false,
 }) => {
   // Determine status and styling
   let statusText = '';
@@ -38,7 +38,7 @@ export const ConnectionStatusBanner: React.FC<ConnectionStatusBannerProps> = ({
   }
 
   return (
-    <View style={[styles.banner, { backgroundColor: statusColor }]}>
+    <View style={[styles.banner, {backgroundColor: statusColor}]}>
       <Text style={styles.icon}>{icon}</Text>
       <Text style={styles.text}>{statusText}</Text>
       {isLocal && localReady && (

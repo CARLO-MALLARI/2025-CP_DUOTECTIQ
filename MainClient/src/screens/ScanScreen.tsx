@@ -175,7 +175,7 @@ const ScanScreen: React.FC = () => {
               style={styles.countButton}
               onPress={countCurrentDetections}>
               <Text style={styles.countButtonText}>
-                ➕ Count ({detections.length})
+                ➕ Count ({detections.filter(d => !d.counted).length} new)
               </Text>
             </TouchableOpacity>
           )}
@@ -262,7 +262,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 24,
     elevation: 10, // Increase elevation
-    zIndex: 999, // ADD THIS - ensures it's on top
+    zIndex: 10, // ADD THIS - ensures it's on top
     shadowColor: '#000',
     shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.25,
