@@ -118,7 +118,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
               backgroundColor: '#DC2626',
             },
           ]}>
-          <Text style={styles.modeBadgeText}>Scan at least 1ft away</Text>
+          <Text style={styles.modeBadgeText}>Scan at least 30cm away</Text>
         </Animated.View>
       )}
 

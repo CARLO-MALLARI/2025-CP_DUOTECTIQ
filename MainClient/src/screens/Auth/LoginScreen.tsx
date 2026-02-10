@@ -15,7 +15,15 @@ import Svg, {Defs, LinearGradient, Path, Stop} from 'react-native-svg';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import {signInWithEmailAndPassword} from 'firebase/auth';
 import {auth, db} from '../../lib/firebase';
-import {collection, query, where, getDocs} from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  getDoc,
+  limit,
+} from 'firebase/firestore';
 import {useNavigation} from '@react-navigation/native';
 import {NativeStackNavigationProp} from '@react-navigation/native-stack';
 import {AuthStackParamList} from '../../types/navigation';
@@ -42,7 +50,6 @@ const LoginScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const handlePhoneChange = (text: string) => {
-    // Remove any non-digit characters
     const digitsOnly = text.replace(/\D/g, '');
     setPhone(digitsOnly);
   };
@@ -64,7 +71,6 @@ const LoginScreen: React.FC = () => {
     }
   };
 
-  // Phone + Password login
   const handlePhoneLogin = async () => {
     if (!phone || !phonePassword) {
       Alert.alert('Error', 'Please fill in all fields');
@@ -72,24 +78,42 @@ const LoginScreen: React.FC = () => {
     }
     setLoading(true);
     try {
-      // Query Firestore for the user with this phone
       const q = query(
         collection(db, 'users'),
         where('phone', '==', phone.trim()),
+        limit(1),
       );
-      const querySnapshot = await getDocs(q);
-      if (querySnapshot.empty) {
-        throw new Error('No user found with this phone number');
+
+      let userEmail = null;
+
+      try {
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+          const userDoc = querySnapshot.docs[0];
+          userEmail = userDoc.data().email;
+        }
+      } catch (permissionError: any) {
+        console.error('Firestore permission error:', permissionError);
+        Alert.alert(
+          'Configuration Error',
+          'Phone login requires Firestore security rules update. Please contact support or use email login instead.\n\nError: ' +
+            (permissionError.message || 'Permission denied'),
+        );
+        setLoading(false);
+        return;
       }
 
-      const userDoc = querySnapshot.docs[0];
-      const userEmail = userDoc.data().email;
-      if (!userEmail) throw new Error('No email associated with this phone');
+      if (!userEmail) {
+        throw new Error('No user found with this phone number');
+      }
 
       await signInWithEmailAndPassword(auth, userEmail, phonePassword);
       Alert.alert('Success', 'Logged in with phone!');
       setPhoneModalVisible(false);
+      setPhone('');
+      setPhonePassword('');
     } catch (err: any) {
+      console.error('Phone login error:', err);
       Alert.alert('Login Error', err.message || 'Unknown error');
     } finally {
       setLoading(false);
@@ -223,7 +247,7 @@ const LoginScreen: React.FC = () => {
             <TouchableOpacity
               style={styles.socialButton}
               onPress={() => setPhoneModalVisible(true)}>
-              <Text style={styles.socialText}>Phone</Text>
+              <Text style={styles.socialText}>📱 Phone</Text>
             </TouchableOpacity>
           </View>
 
@@ -251,32 +275,42 @@ const LoginScreen: React.FC = () => {
               <TextInput
                 style={styles.modalInput}
                 placeholder="Enter your phone number"
-                keyboardType="numeric"
+                placeholderTextColor="#666"
+                keyboardType="phone-pad"
                 value={phone}
                 onChangeText={handlePhoneChange}
               />
-              <TextInput
-                style={styles.modalInput}
-                placeholder="Password"
-                secureTextEntry={!showPhonePassword}
-                value={phonePassword}
-                onChangeText={setPhonePassword}
-              />
-              <TouchableOpacity
-                style={styles.showPassButton}
-                onPress={() => setShowPhonePassword(!showPhonePassword)}>
-                <Ionicons
-                  name={showPhonePassword ? 'eye-off' : 'eye'}
-                  size={22}
-                  color="#666"
+              <View style={{width: '100%', position: 'relative'}}>
+                <TextInput
+                  style={[styles.modalInput, {paddingRight: 45}]}
+                  placeholder="Password"
+                  placeholderTextColor="#666"
+                  secureTextEntry={!showPhonePassword}
+                  value={phonePassword}
+                  onChangeText={setPhonePassword}
                 />
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.showPassButton}
+                  onPress={() => setShowPhonePassword(!showPhonePassword)}>
+                  <Ionicons
+                    name={showPhonePassword ? 'eye-off' : 'eye'}
+                    size={22}
+                    color="#666"
+                  />
+                </TouchableOpacity>
+              </View>
               <TouchableOpacity
                 style={styles.modalButton}
                 onPress={handlePhoneLogin}>
                 <Text style={styles.modalButtonText}>Login</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => setPhoneModalVisible(false)}>
+              <TouchableOpacity
+                onPress={() => {
+                  setPhoneModalVisible(false);
+                  setPhone('');
+                  setPhonePassword('');
+                  setShowPhonePassword(false);
+                }}>
                 <Text style={styles.modalCancel}>Cancel</Text>
               </TouchableOpacity>
             </View>
@@ -419,15 +453,22 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
   },
-  modalTitle: {fontSize: 20, fontWeight: '700', marginBottom: 12},
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginBottom: 12,
+    color: '#333',
+  },
   modalInput: {
     width: '100%',
     borderWidth: 1,
     borderColor: '#444',
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 10,
     marginBottom: 12,
+    fontSize: 15,
+    color: '#333',
   },
   modalButton: {
     backgroundColor: '#4b7a1c',
@@ -439,7 +480,12 @@ const styles = StyleSheet.create({
   },
   modalButtonText: {color: '#fff', fontWeight: '600', fontSize: 16},
   modalCancel: {color: '#1e90ff', fontWeight: '600', fontSize: 14},
-  showPassButton: {position: 'absolute', right: 15, top: 150},
+  showPassButton: {
+    position: 'absolute',
+    right: 12,
+    top: 10,
+    padding: 4,
+  },
 });
 
 export default LoginScreen;

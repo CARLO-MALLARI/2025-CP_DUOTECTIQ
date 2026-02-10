@@ -15,7 +15,7 @@ model = YOLO("v8s.pt").to(device)
 print("🔥 Using device:", device)
 print("✅ Model loaded successfully with classes:", model.names)
 
-CONF_THRESHOLD = 0.8
+CONF_THRESHOLD = 0.9
 IOU_THRESHOLD = 0.2  
 MAX_FRAMES_LOST = 1  
 

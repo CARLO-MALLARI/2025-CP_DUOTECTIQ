@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   View,
   Text,
@@ -9,18 +9,17 @@ import {
   Dimensions,
   Alert,
 } from 'react-native';
-import { auth, db } from '../lib/firebase';
-import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
+import {auth, db} from '../lib/firebase';
+import {doc, getDoc, updateDoc, setDoc} from 'firebase/firestore';
 import LoadingOverlay from '../components/LoadingOverlay';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { AuthStackParamList } from '../types/navigation';
+import {useNavigation} from '@react-navigation/native';
+import {NativeStackNavigationProp} from '@react-navigation/native-stack';
+import {AuthStackParamList} from '../types/navigation';
 import BottomNavBar from '../components/BottomNavbar';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Picker } from '@react-native-picker/picker';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {Picker} from '@react-native-picker/picker';
 
-
-const { height } = Dimensions.get('window');
+const {height} = Dimensions.get('window');
 type Nav = NativeStackNavigationProp<AuthStackParamList>;
 
 const ProfileScreen: React.FC = () => {
@@ -34,6 +33,7 @@ const ProfileScreen: React.FC = () => {
   const [lastName, setLastName] = useState('');
   const [middleName, setMiddleName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [role, setRole] = useState('');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
@@ -52,6 +52,7 @@ const ProfileScreen: React.FC = () => {
           setLastName(data.lastName || '');
           setMiddleName(data.middleName || '');
           setEmail(data.email || '');
+          setPhone(data.phone || '');
           setRole(data.role || '');
           setAddress(data.address || '');
           setCity(data.city || '');
@@ -69,6 +70,11 @@ const ProfileScreen: React.FC = () => {
     fetchProfile();
   }, [user]);
 
+  const handlePhoneChange = (text: string) => {
+    const digitsOnly = text.replace(/\D/g, '');
+    setPhone(digitsOnly);
+  };
+
   const handleSave = async () => {
     if (!user) return;
     setUpdating(true);
@@ -79,15 +85,17 @@ const ProfileScreen: React.FC = () => {
         {
           firstName,
           lastName,
+          middleName,
+          phone,
           role,
           address,
           city,
           state,
           zip,
-          email: user.email, // optional, ensures it's stored for Google users
+          email: user.email,
           updatedAt: new Date(),
         },
-        { merge: true } // ✅ creates the doc if it doesn't exist yet
+        {merge: true},
       );
 
       Alert.alert('Success', 'Profile updated successfully!');
@@ -104,13 +112,12 @@ const ProfileScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#f0f0f0' }}>
+    <SafeAreaView style={{flex: 1, backgroundColor: '#f0f0f0'}}>
       <View style={styles.container}>
         <View style={styles.modalCard}>
           <TouchableOpacity
             style={styles.closeButton}
-            onPress={() => navigation.goBack()}
-          >
+            onPress={() => navigation.goBack()}>
             <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>
 
@@ -138,7 +145,6 @@ const ProfileScreen: React.FC = () => {
                   placeholder="Enter Last Name"
                 />
               </View>
-              
             </View>
             <View style={styles.inputGroup}>
               <Text style={styles.label}>Middle Name</Text>
@@ -151,14 +157,27 @@ const ProfileScreen: React.FC = () => {
               />
             </View>
 
-            {/* Email (read-only) */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Email</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: '#b2b2b2ff' }]}
-                value={email}
-                editable={false}
-              />
+            {/* Email (read-only) and Phone */}
+            <View style={styles.row}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Email</Text>
+                <TextInput
+                  style={[styles.input, {backgroundColor: '#b2b2b2ff'}]}
+                  value={email}
+                  editable={false}
+                />
+              </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Phone</Text>
+                <TextInput
+                  style={styles.input}
+                  value={phone}
+                  onChangeText={handlePhoneChange}
+                  placeholder="Enter Phone Number"
+                  placeholderTextColor="#666"
+                  keyboardType="phone-pad"
+                />
+              </View>
             </View>
 
             {/* Address */}
@@ -220,7 +239,7 @@ const ProfileScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  background: { flex: 1 },
+  background: {flex: 1},
   container: {
     flex: 1,
     justifyContent: 'center',
@@ -315,7 +334,6 @@ const styles = StyleSheet.create({
     color: '#333',
     fontSize: 13,
   },
-
 });
 
 export default ProfileScreen;
