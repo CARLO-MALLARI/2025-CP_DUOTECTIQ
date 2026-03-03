@@ -1,8 +1,16 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, Image, StyleSheet, Modal, TouchableOpacity} from 'react-native';
+import React, {useState} from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  Image,
+  StyleSheet,
+  Modal,
+  TouchableOpacity,
+} from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { theme } from '../styles/theme';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {theme} from '../styles/theme';
+import {SafeAreaView} from 'react-native-safe-area-context';
 import BottomNavBar from '../components/BottomNavbar';
 
 const defectsData = [
@@ -11,7 +19,7 @@ const defectsData = [
     items: [
       {
         name: 'Blemish / Scar',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Blemish(t).png'),
         crop: 'TOMATO',
         looks: 'Superficial tan/brown scars or corky patches.',
         cause: 'Mechanical injury or rubbing on stem.',
@@ -19,7 +27,7 @@ const defectsData = [
       },
       {
         name: 'Worm Bite / Insect Hole',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Wormbite(t).png'),
         crop: 'TOMATO',
         looks: 'Small holes with frass (crumbs).',
         cause: 'caterpillars or any insect bites.',
@@ -27,7 +35,7 @@ const defectsData = [
       },
       {
         name: 'Sunscald (Discoloration)',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Sunscald(t).png'),
         crop: 'TOMATO',
         looks: 'Whitish, papery spot on exposed fruit.',
         cause: 'Direct intense sunlight.',
@@ -35,15 +43,16 @@ const defectsData = [
       },
       {
         name: 'Bruise / Pressure Damage',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Bruise(t).png'),
         crop: 'TOMATO',
         looks: 'soft, dark, watery spot after packing/transport.',
         cause: 'Dropping fruit, overfilled crates, stacking weights.',
-        prevention: 'harvest with pedicel trimmed, avoid tossing and handlee gently.',
+        prevention:
+          'harvest with pedicel trimmed, avoid tossing and handlee gently.',
       },
       {
         name: 'Cracks',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Crack(t).png'),
         crop: 'TOMATO',
         looks: 'Vertical/horizontal on fruit wall',
         cause: 'Irregular watering or excess rain.',
@@ -51,7 +60,7 @@ const defectsData = [
       },
       {
         name: 'Overripe / Softening',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Overripe.png'),
         crop: 'TOMATO',
         looks: 'Overly soft flesh, dull or overly deep color, easy to leak.',
         cause: 'Delayed harvest or hot storage.',
@@ -64,15 +73,16 @@ const defectsData = [
     items: [
       {
         name: 'Blemish / Scar',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Blemish(B).png'),
         crop: 'BELL PEPPER',
         looks: 'Small rough patches or healed marks on skin',
         cause: 'Rubbing, handling or minor insect damage.',
-        prevention: 'Handle peppers gently and reduce contact with rough surfaces during harvest.',
+        prevention:
+          'Handle peppers gently and reduce contact with rough surfaces during harvest.',
       },
       {
         name: 'Worm Bite / Chewed Area',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Wormbites(20).png'),
         crop: 'BELL PEPPER',
         looks: 'Small holes with dark chewed areas.',
         cause: 'Caterpillars or fruit borers.',
@@ -80,23 +90,25 @@ const defectsData = [
       },
       {
         name: 'Sunscald (Discoloration)',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Sunscald(B).png'),
         crop: 'BELL PEPPER',
         looks: 'White, pale or papery patches.',
         cause: 'Direct exposure to strong sunlight.',
-        prevention: 'Maintain healthy foilage coverage, avoid over-pruning plants.',
+        prevention:
+          'Maintain healthy foilage coverage, avoid over-pruning plants.',
       },
       {
         name: 'Shrivel / Dehydration',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Shrivel(B).png'),
         crop: 'BELL PEPPER',
         looks: 'Wrinkled , soft and dehydrated skin.',
         cause: 'Loss of moisture during storage.',
-        prevention: 'Store in a cool, humid environment, avoid leaving peppers in dry air.',
+        prevention:
+          'Store in a cool, humid environment, avoid leaving peppers in dry air.',
       },
       {
         name: 'Crack / Split',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Cracks(B).png'),
         crop: 'BELL PEPPER',
         looks: 'Visible lines or open splits on skin.',
         cause: 'Sudden rapid growth or heavy rain after dry period.',
@@ -104,7 +116,7 @@ const defectsData = [
       },
       {
         name: 'Cold Injury (Chilling)',
-        image: require('../assets/splash.png'),
+        image: require('../assets/Cold_Injury(B).png'),
         crop: 'BELL PEPPER',
         looks: 'Soft, watery spots that may turn dark or sunken.',
         cause: 'Exposure to temperatures below 45°F (7°C).',
@@ -114,50 +126,71 @@ const defectsData = [
   },
 ];
 
-
 const OverviewScreen: React.FC = () => {
   const [selectedDefect, setSelectedDefect] = useState<any>(null);
-  
+
   return (
     <SafeAreaView style={styles.safeArea}>
-    <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 80 }} showsVerticalScrollIndicator={false}>
-      <Text style={styles.title}>Crop Qualities Overview</Text>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={{paddingBottom: 80}}
+        showsVerticalScrollIndicator={false}>
+        <Text style={styles.title}>Crop Qualities Overview</Text>
 
-      <View style={styles.section}>
-        <View style={styles.sectionHeader}>
-          <Ionicons name="ribbon-outline" size={20} color={theme.colors.primary} />
-          <Text style={styles.sectionTitle}>Quality Assessment Criteria</Text>
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons
+              name="ribbon-outline"
+              size={20}
+              color={theme.colors.primary}
+            />
+            <Text style={styles.sectionTitle}>Quality Assessment Criteria</Text>
+          </View>
+
+          <View style={styles.cardRow}>
+            <View style={styles.card}>
+              <Ionicons
+                name="search-outline"
+                size={18}
+                color={theme.colors.primary}
+              />
+              <Text style={styles.cardTitle}>Condition Assessment</Text>
+              <Text style={styles.cardText}>
+                Detecting visible damage including bruises, blemishes, cuts, and
+                discoloration that affect market value.
+              </Text>
+            </View>
+
+            <View style={styles.card}>
+              <Ionicons
+                name="color-palette-outline"
+                size={18}
+                color={theme.colors.primary}
+              />
+              <Text style={styles.cardTitle}>Color Classification</Text>
+              <Text style={styles.cardText}>
+                Classifying undamaged crops as green or red to meet buyer
+                packaging and pricing requirements.
+              </Text>
+            </View>
+
+            <View style={styles.card}>
+              <Ionicons
+                name="resize-outline"
+                size={18}
+                color={theme.colors.primary}
+              />
+              <Text style={styles.cardTitle}>Size Standardization</Text>
+              <Text style={styles.cardText}>
+                Categorizing undamaged crops into small, medium, or large for
+                consistent presentation and market standards.
+              </Text>
+            </View>
+          </View>
         </View>
 
-        <View style={styles.cardRow}>
-          <View style={styles.card}>
-            <Ionicons name="search-outline" size={18} color={theme.colors.primary} />
-            <Text style={styles.cardTitle}>Condition Assessment</Text>
-            <Text style={styles.cardText}>
-              Detecting visible damage including bruises, blemishes, cuts, and discoloration that affect market value.
-            </Text>
-          </View>
-
-          <View style={styles.card}>
-            <Ionicons name="color-palette-outline" size={18} color={theme.colors.primary} />
-            <Text style={styles.cardTitle}>Color Classification</Text>
-            <Text style={styles.cardText}>
-              Classifying undamaged crops as green or red to meet buyer packaging and pricing requirements.
-            </Text>
-          </View>
-
-          <View style={styles.card}>
-            <Ionicons name="resize-outline" size={18} color={theme.colors.primary} />
-            <Text style={styles.cardTitle}>Size Standardization</Text>
-            <Text style={styles.cardText}>
-              Categorizing undamaged crops into small, medium, or large for consistent presentation and market standards.
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* ===== Economic Benefits ===== */}
-      {/* <View style={[styles.section, { backgroundColor: '#FDF7EE' }]}>
+        {/* ===== Economic Benefits ===== */}
+        {/* <View style={[styles.section, { backgroundColor: '#FDF7EE' }]}>
         <View style={styles.sectionHeader}>
           <Ionicons name="trending-up-outline" size={20} color="#C47F00" />
           <Text style={[styles.sectionTitle, { color: '#C47F00' }]}>Economic Benefits</Text>
@@ -190,121 +223,133 @@ const OverviewScreen: React.FC = () => {
         </Text>
       </View> */}
 
-      {/* ===== Supported Crop Varieties ===== */}
-      <Text style={styles.subtitle}>Supported Crop Varieties</Text>
+        {/* ===== Supported Crop Varieties ===== */}
+        <Text style={styles.subtitle}>Supported Crop Varieties</Text>
 
-      <View style={styles.cropRow}>
-        <View style={styles.cropCard}>
-          <View style={[styles.cropHeader, { backgroundColor: '#B93128' }]}>
-            <Text style={styles.cropName}>Tomato</Text>
-            <Text style={styles.cropSub}>Solanum lycopersicum</Text>
+        <View style={styles.cropRow}>
+          <View style={styles.cropCard}>
+            <View style={[styles.cropHeader, {backgroundColor: '#B93128'}]}>
+              <Text style={styles.cropName}>Tomato</Text>
+              <Text style={styles.cropSub}>Solanum lycopersicum</Text>
+            </View>
+
+            <Image
+              source={require('../assets/tomato.jpg')} // add this image
+              style={styles.cropImage}
+              resizeMode="cover"
+            />
+
+            <Text style={styles.cropText}>
+              A tomato is the fleshy, seed-bearing fruit of Solanum
+              lycopersicum, treated like a vegetable in everyday cooking.
+            </Text>
           </View>
 
-          <Image
-            source={require('../assets/tomato.jpg')} // add this image
-            style={styles.cropImage}
-            resizeMode="cover"
-          />
+          <View style={styles.cropCard}>
+            <View style={[styles.cropHeader, {backgroundColor: '#3C8D40'}]}>
+              <Text style={styles.cropName}>Bell Pepper</Text>
+              <Text style={styles.cropSub}>Capsicum annuum</Text>
+            </View>
 
-          <Text style={styles.cropText}>
-            A tomato is the fleshy, seed-bearing fruit of Solanum lycopersicum, treated like a vegetable in everyday cooking.
-          </Text>
-        </View>
+            <Image
+              source={require('../assets/bellpepper.jpg')} // add this image
+              style={styles.cropImage}
+              resizeMode="cover"
+            />
 
-        <View style={styles.cropCard}>
-          <View style={[styles.cropHeader, { backgroundColor: '#3C8D40' }]}>
-            <Text style={styles.cropName}>Bell Pepper</Text>
-            <Text style={styles.cropSub}>Capsicum annuum</Text>
-          </View>
-
-          <Image
-            source={require('../assets/bellpepper.jpg')} // add this image
-            style={styles.cropImage}
-            resizeMode="cover"
-          />
-
-          <Text style={styles.cropText}>
-            A bell pepper is the fruit of Capsicum annuum, known for its crisp, mild, and sweet flavor. Available in green and red.
-          </Text>
-        </View>
-      </View>
-    
-      <Text style={styles.subtitle}>Common Defects</Text>
-      
-      {defectsData.map((group, i) => (
-        <View key={i} style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="reorder-three-outline" size={18} color="#2e5d34" />
-            <Text style={styles.cardTitle}>{group.title}</Text>
-          </View>
-
-          <View style={styles.grid}>
-            {group.items.map((item, j) => (
-              <TouchableOpacity
-                key={j}
-                style={styles.defectItem}
-                activeOpacity={0.7}
-                onPress={() => {
-                  console.log('Pressed:', item.name);
-                  setSelectedDefect(item);
-                }}>
-                <Image source={item.image} style={styles.defectImage} />
-                <Text style={styles.defectText}>{item.name}</Text>
-              </TouchableOpacity>
-            ))}
+            <Text style={styles.cropText}>
+              A bell pepper is the fruit of Capsicum annuum, known for its
+              crisp, mild, and sweet flavor. Available in green and red.
+            </Text>
           </View>
         </View>
-      ))}
 
-      <View style={{ height: 80 }} />
+        <Text style={styles.subtitle}>Common Defects</Text>
 
-    </ScrollView>
-    <BottomNavBar/>
+        {defectsData.map((group, i) => (
+          <View key={i} style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Ionicons
+                name="reorder-three-outline"
+                size={18}
+                color="#2e5d34"
+              />
+              <Text style={styles.cardTitle}>{group.title}</Text>
+            </View>
 
-    <Modal
-      transparent
-      visible={!!selectedDefect}
-      animationType="fade"
-      onRequestClose={() => setSelectedDefect(null)}>
-      <View style={styles.modalBackdrop}>
-        <View style={styles.modalBox}>
-          <TouchableOpacity
-            onPress={() => setSelectedDefect(null)}
-            style={styles.closeBtn}>
-            <Ionicons name="close-outline" size={24} color="#000" />
-          </TouchableOpacity>
+            <View style={styles.grid}>
+              {group.items.map((item, j) => (
+                <TouchableOpacity
+                  key={j}
+                  style={styles.defectItem}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    console.log('Pressed:', item.name);
+                    setSelectedDefect(item);
+                  }}>
+                  <Image source={item.image} style={styles.defectImage} />
+                  <Text style={styles.defectText}>{item.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        ))}
 
-          {selectedDefect && (
-            <>
-              <Image source={selectedDefect.image} style={styles.modalImage} />
-              <Text style={styles.modalTitle}>{selectedDefect.name}</Text>
-              <Text style={styles.modalCrop}>{selectedDefect.crop}</Text>
+        <View style={{height: 80}} />
+      </ScrollView>
+      <BottomNavBar />
 
-              <View style={[styles.infoBox, { backgroundColor: '#cfe2ff' }]}>
-                <Text style={styles.infoText}>
-                  <Ionicons name="eye-outline" color="#2b6cb0" size={16} /> Looks like:{' '}
-                  {selectedDefect.looks}
-                </Text>
-              </View>
+      <Modal
+        transparent
+        visible={!!selectedDefect}
+        animationType="fade"
+        onRequestClose={() => setSelectedDefect(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalBox}>
+            <TouchableOpacity
+              onPress={() => setSelectedDefect(null)}
+              style={styles.closeBtn}>
+              <Ionicons name="close-outline" size={24} color="#000" />
+            </TouchableOpacity>
 
-              <View style={[styles.infoBox, { backgroundColor: '#f8d7da' }]}>
-                <Text style={styles.infoText}>
-                  <Ionicons name="warning-outline" color="#c53030" size={16} /> Cause:{' '}
-                  {selectedDefect.cause}
-                </Text>
-              </View>
+            {selectedDefect && (
+              <>
+                <Image
+                  source={selectedDefect.image}
+                  style={styles.modalImage}
+                />
+                <Text style={styles.modalTitle}>{selectedDefect.name}</Text>
+                <Text style={styles.modalCrop}>{selectedDefect.crop}</Text>
 
-              <View style={[styles.infoBox, { backgroundColor: '#d1e7dd' }]}>
-                <Text style={styles.infoText}>
-                  <Ionicons name="leaf-outline" color="#2f855a" size={16} /> Prevention:{' '}
-                  {selectedDefect.prevention}
-                </Text>
-              </View>
-            </>
-          )}
+                <View style={[styles.infoBox, {backgroundColor: '#cfe2ff'}]}>
+                  <Text style={styles.infoText}>
+                    <Ionicons name="eye-outline" color="#2b6cb0" size={16} />{' '}
+                    Looks like: {selectedDefect.looks}
+                  </Text>
+                </View>
+
+                <View style={[styles.infoBox, {backgroundColor: '#f8d7da'}]}>
+                  <Text style={styles.infoText}>
+                    <Ionicons
+                      name="warning-outline"
+                      color="#c53030"
+                      size={16}
+                    />{' '}
+                    Cause: {selectedDefect.cause}
+                  </Text>
+                </View>
+
+                <View style={[styles.infoBox, {backgroundColor: '#d1e7dd'}]}>
+                  <Text style={styles.infoText}>
+                    <Ionicons name="leaf-outline" color="#2f855a" size={16} />{' '}
+                    Prevention: {selectedDefect.prevention}
+                  </Text>
+                </View>
+              </>
+            )}
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -312,9 +357,9 @@ const OverviewScreen: React.FC = () => {
 export default OverviewScreen;
 
 const styles = StyleSheet.create({
-  safeArea: { 
-    flex: 1, 
-    backgroundColor: '#f4f4f4' 
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#f4f4f4',
   },
   container: {
     flex: 1,
@@ -335,7 +380,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     shadowColor: '#000',
     shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: {width: 0, height: 1},
     shadowRadius: 3,
     elevation: 2,
   },
