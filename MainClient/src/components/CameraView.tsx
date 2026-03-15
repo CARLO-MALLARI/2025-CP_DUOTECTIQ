@@ -1,4 +1,4 @@
-import React, {useState, useRef, useEffect} from 'react';
+import React, {useState, useRef, useEffect, useMemo} from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,11 @@ import {
 import {Camera, CameraDevice} from 'react-native-vision-camera';
 import {Detection} from '../types/detection.types';
 import {DetectionOverlay} from './DetectionOverlay';
+
+// ─── Guide box margin (fraction of frame) ────────────────────────────────────
+// 0.20 means 20% margin on every side → guide box is the inner 60% × 60%
+const GUIDE_MARGIN = 0.15;
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface CameraViewProps {
   cameraRef: React.RefObject<Camera>;
@@ -33,6 +38,30 @@ export const CameraView: React.FC<CameraViewProps> = ({
   const [cameraReady, setCameraReady] = useState(false);
   const cameraDimensionsRef = useRef({width: 0, height: 0});
   const blinkOpacity = useRef(new Animated.Value(1)).current;
+  const cornerAnim = useRef(new Animated.Value(0)).current;
+
+  // ── Corner accent pulse when streaming ──────────────────────────────────
+  useEffect(() => {
+    if (isStreaming) {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(cornerAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(cornerAnim, {
+            toValue: 0,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ]),
+      ).start();
+    } else {
+      cornerAnim.stopAnimation();
+      cornerAnim.setValue(0);
+    }
+  }, [isStreaming]);
 
   useEffect(() => {
     if (isStreaming && detections.length === 0) {
@@ -56,23 +85,42 @@ export const CameraView: React.FC<CameraViewProps> = ({
     }
   }, [isStreaming, detections.length]);
 
+  // ── Filter detections whose centre falls outside the guide box ───────────
+  // The model always runs on full 640×640; we only suppress what we show.
+  // bbox coords are in model space (0–640). Guide box occupies the inner
+  // [GUIDE_MARGIN … 1-GUIDE_MARGIN] fraction of that space.
+  const MODEL_SIZE = 640;
+  const guideMin = GUIDE_MARGIN * MODEL_SIZE; // e.g. 128
+  const guideMax = (1 - GUIDE_MARGIN) * MODEL_SIZE; // e.g. 512
+
+  const filteredDetections = useMemo(() => {
+    return detections.filter(det => {
+      const [x1, y1, x2, y2] = det.bbox;
+      const cx = (x1 + x2) / 2;
+      const cy = (y1 + y2) / 2;
+      return (
+        cx >= guideMin && cx <= guideMax && cy >= guideMin && cy <= guideMax
+      );
+    });
+  }, [detections, guideMin, guideMax]);
+
   const handleResetPress = () => {
     if (!onReset) return;
-
     Alert.alert(
       'Reset detection?',
       'This will clear all current detections. Are you sure?',
       [
         {text: 'Cancel', style: 'cancel'},
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: () => onReset(),
-        },
+        {text: 'Reset', style: 'destructive', onPress: () => onReset()},
       ],
       {cancelable: true},
     );
   };
+
+  const borderColor = cornerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['rgba(255,255,255,0.55)', 'rgba(255,255,255,1)'],
+  });
 
   return (
     <View
@@ -81,7 +129,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
         const {width, height} = e.nativeEvent.layout;
         cameraDimensionsRef.current = {width, height};
       }}>
-      {/* Start/Stop Button */}
+      {/* ── Start / Stop ─────────────────────────────────────────────────── */}
       <TouchableOpacity
         onPress={onToggleStreaming}
         style={[
@@ -93,14 +141,14 @@ export const CameraView: React.FC<CameraViewProps> = ({
         </Text>
       </TouchableOpacity>
 
-      {/* Reset Button */}
+      {/* ── Reset ────────────────────────────────────────────────────────── */}
       {onReset && isStreaming && (
         <TouchableOpacity onPress={handleResetPress} style={styles.resetButton}>
           <Text style={styles.resetButtonText}>🔄 Reset</Text>
         </TouchableOpacity>
       )}
 
-      {/* Inference Mode Badge */}
+      {/* ── Scanning badge ───────────────────────────────────────────────── */}
       {isStreaming && detections.length === 0 && (
         <Animated.View
           style={[
@@ -122,7 +170,7 @@ export const CameraView: React.FC<CameraViewProps> = ({
         </Animated.View>
       )}
 
-      {/* Camera Component */}
+      {/* ── Camera ───────────────────────────────────────────────────────── */}
       <Camera
         ref={cameraRef}
         style={styles.camera}
@@ -133,9 +181,8 @@ export const CameraView: React.FC<CameraViewProps> = ({
         onError={err => console.error('Camera error:', err)}
       />
 
-      {/* 4x4 Grid Overlay */}
+      {/* ── 4×4 grid (inside guide box only via clip) ────────────────────── */}
       <View style={styles.gridOverlay} pointerEvents="none">
-        {/* Vertical Lines */}
         {[1, 2, 3].map(i => (
           <View
             key={`v-${i}`}
@@ -146,7 +193,6 @@ export const CameraView: React.FC<CameraViewProps> = ({
             ]}
           />
         ))}
-        {/* Horizontal Lines */}
         {[1, 2, 3].map(i => (
           <View
             key={`h-${i}`}
@@ -159,25 +205,82 @@ export const CameraView: React.FC<CameraViewProps> = ({
         ))}
       </View>
 
-      {/* Detection Overlay */}
+      {/* ── Blur vignette — 4 panels covering the outer margin ──────────── */}
+      {/* Top strip */}
+      <View
+        pointerEvents="none"
+        style={[styles.vignettePanel, styles.vignetteTop]}
+      />
+      {/* Bottom strip */}
+      <View
+        pointerEvents="none"
+        style={[styles.vignettePanel, styles.vignetteBottom]}
+      />
+      {/* Left strip (between top & bottom strips) */}
+      <View
+        pointerEvents="none"
+        style={[styles.vignettePanel, styles.vignetteLeft]}
+      />
+      {/* Right strip (between top & bottom strips) */}
+      <View
+        pointerEvents="none"
+        style={[styles.vignettePanel, styles.vignetteRight]}
+      />
+
+      {/* ── Guide box border + animated corners ─────────────────────────── */}
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.guideBox, {borderColor}]}>
+        {/* Corner accents */}
+        {(['TL', 'TR', 'BL', 'BR'] as const).map(pos => (
+          <Animated.View
+            key={pos}
+            style={[
+              styles.corner,
+              styles[`corner${pos}`],
+              {
+                borderColor,
+                opacity: cornerAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.6, 1],
+                }),
+              },
+            ]}
+          />
+        ))}
+      </Animated.View>
+
+      {/* ── Guide label ──────────────────────────────────────────────────── */}
+      <View pointerEvents="none" style={styles.guideLabelContainer}>
+        <Text style={styles.guideLabel}>Scan area</Text>
+      </View>
+
+      {/* ── Detection overlay (filtered) ─────────────────────────────────── */}
       <DetectionOverlay
-        detections={detections}
+        detections={filteredDetections}
         cameraWidth={cameraDimensionsRef.current.width}
         cameraHeight={cameraDimensionsRef.current.height}
         isLocalModel={isUsingLocal}
       />
 
-      {/* Detection Count Badge */}
-      {detections.length > 0 && (
+      {/* ── Detection count badge ────────────────────────────────────────── */}
+      {filteredDetections.length > 0 && (
         <View style={styles.detectionCountBadge}>
           <Text style={styles.detectionCountText}>
-            {detections.length} detected
+            {filteredDetections.length} detected
           </Text>
         </View>
       )}
     </View>
   );
 };
+
+// ─── margin % as decimal for StyleSheet ──────────────────────────────────────
+const M = `${GUIDE_MARGIN * 100}%` as `${number}%`;
+const INNER = `${(1 - GUIDE_MARGIN * 2) * 100}%` as `${number}%`;
+
+const CORNER_SIZE = 18;
+const CORNER_THICKNESS = 3;
 
 const styles = StyleSheet.create({
   cameraContainer: {
@@ -193,11 +296,12 @@ const styles = StyleSheet.create({
   camera: {
     flex: 1,
   },
+
+  // ── Buttons ────────────────────────────────────────────────────────────────
   startButton: {
     position: 'absolute',
     top: 2,
     left: 10,
-    backgroundColor: '#007a33',
     borderRadius: 8,
     paddingVertical: 8,
     paddingHorizontal: 16,
@@ -228,6 +332,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 12,
   },
+
+  // ── Badges ─────────────────────────────────────────────────────────────────
   modeBadge: {
     position: 'absolute',
     bottom: 10,
@@ -247,7 +353,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 10,
     right: 10,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     borderRadius: 6,
     paddingVertical: 4,
     paddingHorizontal: 10,
@@ -259,14 +365,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 11,
   },
-  // Grid styles
+
+  // ── Grid ───────────────────────────────────────────────────────────────────
   gridOverlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 5,
   },
   gridLine: {
     position: 'absolute',
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    backgroundColor: 'rgba(255,255,255,0.3)',
   },
   verticalLine: {
     width: 1,
@@ -275,5 +382,103 @@ const styles = StyleSheet.create({
   horizontalLine: {
     height: 1,
     width: '100%',
+  },
+
+  // ── Vignette panels ────────────────────────────────────────────────────────
+  vignettePanel: {
+    position: 'absolute',
+    zIndex: 6,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  vignetteTop: {
+    top: 0,
+    left: 0,
+    right: 0,
+    height: M,
+  },
+  vignetteBottom: {
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: M,
+  },
+  // left/right panels sit between the top & bottom strips
+  vignetteLeft: {
+    top: M,
+    left: 0,
+    width: M,
+    bottom: M,
+  },
+  vignetteRight: {
+    top: M,
+    right: 0,
+    width: M,
+    bottom: M,
+  },
+
+  // ── Guide box ──────────────────────────────────────────────────────────────
+  guideBox: {
+    position: 'absolute',
+    top: M,
+    left: M,
+    width: INNER,
+    height: INNER,
+    borderWidth: 1,
+    borderRadius: 4,
+    zIndex: 7,
+  },
+
+  // ── Corner accents ─────────────────────────────────────────────────────────
+  corner: {
+    position: 'absolute',
+    width: CORNER_SIZE,
+    height: CORNER_SIZE,
+  },
+  cornerTL: {
+    top: -CORNER_THICKNESS,
+    left: -CORNER_THICKNESS,
+    borderTopWidth: CORNER_THICKNESS,
+    borderLeftWidth: CORNER_THICKNESS,
+    borderTopLeftRadius: 4,
+  },
+  cornerTR: {
+    top: -CORNER_THICKNESS,
+    right: -CORNER_THICKNESS,
+    borderTopWidth: CORNER_THICKNESS,
+    borderRightWidth: CORNER_THICKNESS,
+    borderTopRightRadius: 4,
+  },
+  cornerBL: {
+    bottom: -CORNER_THICKNESS,
+    left: -CORNER_THICKNESS,
+    borderBottomWidth: CORNER_THICKNESS,
+    borderLeftWidth: CORNER_THICKNESS,
+    borderBottomLeftRadius: 4,
+  },
+  cornerBR: {
+    bottom: -CORNER_THICKNESS,
+    right: -CORNER_THICKNESS,
+    borderBottomWidth: CORNER_THICKNESS,
+    borderRightWidth: CORNER_THICKNESS,
+    borderBottomRightRadius: 4,
+  },
+
+  // ── Guide label ────────────────────────────────────────────────────────────
+  guideLabelContainer: {
+    position: 'absolute',
+    top: M,
+    left: M,
+    zIndex: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    borderBottomRightRadius: 4,
+  },
+  guideLabel: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 9,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
 });

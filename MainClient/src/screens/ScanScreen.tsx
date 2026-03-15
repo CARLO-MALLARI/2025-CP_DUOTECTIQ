@@ -1,11 +1,10 @@
-import React, {useEffect, useState, useCallback} from 'react';
+import React, {useEffect, useState, useCallback, useRef} from 'react';
 import {
   SafeAreaView,
   View,
   Text,
   StyleSheet,
   ActivityIndicator,
-  TouchableOpacity,
 } from 'react-native';
 import {useCameraPermission} from '../hooks/useCameraPermission';
 import {useDetectionSocket} from '../hooks/useDetectionSocket';
@@ -13,18 +12,15 @@ import {useCameraStream} from '../hooks/useCameraStream';
 import {CameraView} from '../components/CameraView';
 import {DetectionLegend} from '../components/DetectionLegend';
 import {ClassificationCounter} from '../components/ClassificationCounter';
-import {FrozenFrameModal} from '../components/FrozenFrameModal';
 import {CounterData, Detection} from '../types/detection.types';
 import BottomNavBar from '../components/BottomNavbar';
 import {ConnectionStatusBanner} from '../components/ConnectionStatusBanner';
-import {uploadSummaryToFirestore} from '../helpers/firebaseUploadHelper';
 import {auth} from '../lib/firebase';
 
 const ScanScreen: React.FC = () => {
   const {permission, isLoading: permissionLoading} = useCameraPermission();
   const user = auth.currentUser;
 
-  // Socket connection and detection handling
   const {
     detections,
     connected,
@@ -36,24 +32,21 @@ const ScanScreen: React.FC = () => {
     countCurrentDetections,
   } = useDetectionSocket();
 
-  // Local state for combined detections
   const [displayDetections, setDisplayDetections] = useState<Detection[]>([]);
   const [displayCounters, setDisplayCounters] = useState<CounterData | null>(
     null,
   );
   const [uniqueObjects, setUniqueObjects] = useState(0);
 
-  // Handle local detections callback
   const handleLocalDetections = useCallback(
-    (detections: Detection[], counters: CounterData, uniqueObjs: number) => {
-      setDisplayDetections(detections);
+    (dets: Detection[], counters: CounterData, uniqueObjs: number) => {
+      setDisplayDetections(dets);
       setDisplayCounters(counters);
       setUniqueObjects(uniqueObjs);
     },
     [],
   );
 
-  // Camera stream management
   const {
     isStreaming,
     toggleStreaming,
@@ -69,7 +62,29 @@ const ScanScreen: React.FC = () => {
     onLocalDetections: handleLocalDetections,
   });
 
-  // Update display detections based on active mode
+  // ── Auto-count: fire whenever uncounted detections arrive ─────────────────
+  // Debounced so we don't spam the server on every frame — waits 300 ms of
+  // stability before sending. Uses a ref to hold the timer across renders.
+  const autoCountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!isStreaming || isUsingLocalModel) return;
+
+    const hasUncounted = detections.some(d => !d.counted);
+    if (!hasUncounted) return;
+
+    // Clear any pending timer and restart
+    if (autoCountTimer.current) clearTimeout(autoCountTimer.current);
+    autoCountTimer.current = setTimeout(() => {
+      countCurrentDetections();
+    }, 300);
+
+    return () => {
+      if (autoCountTimer.current) clearTimeout(autoCountTimer.current);
+    };
+  }, [detections, isStreaming, isUsingLocalModel, countCurrentDetections]);
+
+  // ── Sync display state to active mode ────────────────────────────────────
   useEffect(() => {
     if (isUsingLocalModel) {
       setDisplayDetections(localDetections);
@@ -88,7 +103,6 @@ const ScanScreen: React.FC = () => {
     serverCounters,
   ]);
 
-  // Fallback counter data
   const counterData: CounterData = displayCounters ?? {
     Tomato: {
       total: {green: 0, damaged: 0, red: 0},
@@ -104,7 +118,6 @@ const ScanScreen: React.FC = () => {
     },
   };
 
-  // Reset handler
   const handleReset = useCallback(() => {
     if (isUsingLocalModel) {
       resetLocalCounters();
@@ -140,7 +153,6 @@ const ScanScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Connection Status Banner */}
       <ConnectionStatusBanner
         connected={connected}
         stale={false}
@@ -148,7 +160,6 @@ const ScanScreen: React.FC = () => {
         localReady={false}
       />
 
-      {/* If not connected → block the inference UI */}
       {!connected ? (
         <View style={styles.blockerContainer}>
           <Text style={styles.blockerText}>Not connected to server</Text>
@@ -158,7 +169,6 @@ const ScanScreen: React.FC = () => {
         </View>
       ) : (
         <View style={styles.mainContent}>
-          {/* Camera View with Detection Overlay */}
           <CameraView
             cameraRef={cameraRef}
             device={device}
@@ -169,21 +179,8 @@ const ScanScreen: React.FC = () => {
             isUsingLocal={false}
           />
 
-          {/* Count Button - Show when detections exist */}
-          {isStreaming && detections.length > 0 && (
-            <TouchableOpacity
-              style={styles.countButton}
-              onPress={countCurrentDetections}>
-              <Text style={styles.countButtonText}>
-                ➕ Count ({detections.filter(d => !d.counted).length} new)
-              </Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Detection Legend */}
           <DetectionLegend />
 
-          {/* Classification Counter */}
           <View style={styles.counterSection}>
             <View style={styles.counterHeader}>
               <Text style={styles.title}>Classification Counter</Text>
@@ -221,6 +218,7 @@ const ScanScreen: React.FC = () => {
     </SafeAreaView>
   );
 };
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -230,7 +228,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'space-evenly',
-    position: 'relative', // ADD THIS
+    position: 'relative',
   },
   blockerContainer: {
     flex: 1,
@@ -253,30 +251,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  captureButton: {
-    position: 'absolute',
-    bottom: 180, // Move it higher so it's not covered by counter
-    right: 20,
-    backgroundColor: '#3B82F6',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 24,
-    elevation: 10, // Increase elevation
-    zIndex: 10, // ADD THIS - ensures it's on top
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
-  captureButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
   counterSection: {
     width: '100%',
     alignItems: 'center',
-    zIndex: 1, // ADD THIS - lower than button
+    zIndex: 1,
   },
   counterHeader: {
     flexDirection: 'row',
@@ -313,26 +291,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
     marginTop: 8,
-  },
-  countButton: {
-    position: 'absolute',
-    bottom: 325,
-    right: 20,
-    backgroundColor: '#22C55E',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 24,
-    elevation: 10,
-    zIndex: 999,
-    shadowColor: '#000',
-    shadowOffset: {width: 0, height: 2},
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
-  countButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
   },
 });
 
